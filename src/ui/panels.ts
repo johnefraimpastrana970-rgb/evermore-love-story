@@ -21,6 +21,9 @@ import { PERSONAL } from '../content/personal';
 import { ACHIEVEMENTS, SECRET_COUNT } from '../content/achievements';
 import { openPizzaShop, pizzaUnlocked } from '../pizza/shop';
 import { openMarket } from '../pizza/market';
+import { openGarden } from '../garden/garden';
+import { gardenUnlocked } from '../garden/unlock';
+import { stage } from '../garden/logic';
 import { UNLOCK_LEVEL } from '../pizza/logic';
 import { COSMETICS } from '../content/cosmetics';
 import { LOCATIONS, LOCATION_ORDER } from '../content/locations';
@@ -224,7 +227,7 @@ function swatch(c: CosmeticDef): HTMLElement {
   const color = '#' + c.color.toString(16).padStart(6, '0');
   const b = el('button', `swatch ${status} ${equipped ? 'eq' : ''}`);
   b.innerHTML = `<span class="chip" style="background:${color}"></span><span class="nm">${esc(c.name)}</span>
-    <span class="st">${equipped ? 'Wearing' : status === 'owned' ? 'Wear' : status === 'buy' ? `${iconImg('coin', 24, 'ico-xs')} ${c.cost}` : `Lv ${c.unlockLevel}`}</span>`;
+    <span class="st">${equipped ? 'Wearing' : status === 'owned' ? 'Wear' : status === 'buy' ? `${iconImg('coin', 24, 'ico-xs')} ${c.cost}` : c.garden ? '🌱 Garden' : `Lv ${c.unlockLevel}`}</span>`;
   b.addEventListener('click', () => {
     if (status === 'owned') {
       if (!equipped) burstHearts(b, 6, '✦');
@@ -501,6 +504,15 @@ function renderMap(body: HTMLElement) {
       closePanel();
       void town.go();
     });
+    art.appendChild(pin);
+  }
+  // Our garden, next to the backyard (hidden until it unlocks, so it stays a surprise).
+  if (gardenUnlocked()) {
+    const ready = s.garden.plots.filter((p) => p.plantId && stage(p, Date.now()) === 3).length;
+    const pin = el('button', 'pin-loc pin-town pin-garden', `<span class="pin-emoji">🌷</span><b>Garden</b><small>${ready ? `${ready} ready to pick ♡` : 'Our backyard garden'}</small>`);
+    pin.style.left = '86%';
+    pin.style.top = '60%';
+    pin.addEventListener('click', () => { closePanel(); void openGarden(); });
     art.appendChild(pin);
   }
   body.appendChild(map);

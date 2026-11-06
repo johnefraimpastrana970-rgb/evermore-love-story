@@ -20,7 +20,7 @@ registerApp({
       ctx.host.innerHTML = h.length ? `<ul class="ph-list notif-list">${h.map((n) => {
         const d = dayLabel(n.at);
         const head = d !== day ? `<li class="ph-letter">${esc((day = d))}</li>` : '';
-        const icon = n.source === 'reminder' ? '🔔' : '💌';
+        const icon = n.source === 'reminder' ? '🔔' : n.source === 'garden' ? '🌷' : '💌';
         const tags = [n.missed ? '<i class="tag miss">missed</i>' : '', n.opened ? '<i class="tag">opened</i>' : '', n.channel !== 'game' ? `<i class="tag">${n.channel}</i>` : ''].join('');
         return `${head}<li><button class="ph-row" data-src="${n.source}" data-ref="${esc(n.refId ?? '')}"><span class="notif-ico">${icon}</span>
           <span><b>${esc(n.title)}</b><small>${esc(n.body.split('\n')[0])}</small></span><span class="notif-meta"><small>${timeLabel(n.at)}</small>${tags}</span></button></li>`;
@@ -28,6 +28,7 @@ registerApp({
       ctx.host.querySelectorAll<HTMLElement>('[data-src]').forEach((b) => b.addEventListener('click', () => {
         const ref = b.dataset.ref;
         if (b.dataset.src === 'reminder' && ref && store.state.phone.reminders.some((r) => r.id === ref && !r.deleted)) ctx.go(`calendar?reminder=${encodeURIComponent(ref)}`);
+        else if (b.dataset.src === 'garden' && store.state.garden.unlocked) ctx.go('garden');
         else ctx.go('messages');
       }));
     };

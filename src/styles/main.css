@@ -541,6 +541,7 @@ li.done .ck { background: var(--mint); border-color: var(--mint); color: #fff; }
 
 .cook { width: min(600px, 100%); text-align: center; }
 .cook-recipe { font-family: var(--hand); font-size: 32px; color: var(--rose); margin: 0; }
+.cook-fresh { margin: 2px 0 0; font-size: 14px; color: #3f8a35; background: #e9f7e2; display: inline-block; padding: 3px 12px; border-radius: 999px; }
 .cook-pan img { width: 110px; }
 .cook-pan.bounce { animation: flip .5s; }
 @keyframes flip { 40% { transform: translateY(-30px) rotate(20deg); } }

@@ -6,6 +6,9 @@ import { PERSONAL_TEMPLATES } from '../content/personal';
 import { OCCASION_TEMPLATES } from '../content/occasions';
 import { AUTHORABLE_OCCASIONS, PERSONAL_KINDS, normalizeAuthored, type AuthoredContent, type OccasionOverride } from '../content/authored';
 import type { PersonalEntry, PersonalKind } from '../content/types';
+import { SPECIALS, bloomFlag } from '../garden/data';
+
+const bloomOf = (e: PersonalEntry) => SPECIALS.find((s) => e.unlock?.flag === bloomFlag(s.id));
 
 /*
  * Author mode: write the letters, memories, photos and special days for her.
@@ -33,7 +36,7 @@ const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 
 
 const app = document.getElementById('author')!;
 let data: AuthoredContent = normalizeAuthored({});
-let tab: 'entries' | 'days' | 'names' | 'backup' = 'entries';
+let tab: 'entries' | 'garden' | 'days' | 'names' | 'backup' = 'entries';
 let filter: PersonalKind | 'all' = 'all';
 let saveTimer = 0;
 let saving: Promise<void> = Promise.resolve();
@@ -114,7 +117,9 @@ function unlockText(e: PersonalEntry): string {
   if (u.secret) parts.push('when she finds a hidden secret');
   if (u.occasion) parts.push(`on ${OCCASION_TEMPLATES.find((o) => o.id === u.occasion)?.name.replace(/[⟦⟧]/g, '') ?? u.occasion}`);
   if (u.questDone) parts.push('after a story chapter');
-  if (u.flag) parts.push('after a story moment');
+  const bloom = bloomOf(e);
+  if (bloom) parts.push(`when the ${bloom.name} ${bloom.emoji} first blooms in the garden`);
+  else if (u.flag) parts.push('after a story moment');
   return parts.length ? parts.join(', ') : 'from the start';
 }
 function problems(e: PersonalEntry | undefined, kind: PersonalKind): string[] {
@@ -153,6 +158,7 @@ function entryCard(id: string): string {
       ${img ? '<button class="btn ghost" data-nophoto>Remove photo</button>' : ''}</div>` : ''}
     <div class="row">
       <label class="inline">From level <input type="number" min="1" max="999" data-f="minLevel" value="${shown.unlock?.minLevel ?? ''}" placeholder="any"></label>
+      ${!shown.unlock?.flag || bloomOf(shown) ? `<label class="inline">🌷 When a garden flower blooms <select data-bloom><option value="">—</option>${SPECIALS.map((s) => `<option value="${s.id}" ${bloomOf(shown)?.id === s.id ? 'selected' : ''}>${s.emoji} ${esc(s.name)}</option>`).join('')}</select></label>` : ''}
       ${kind === 'challenge' ? `<label class="inline">XP reward <input type="number" min="0" max="5000" data-f="rewardXp" value="${shown.rewardXp ?? 100}"></label>` : ''}
       <span class="grow"></span>
       ${t ? (e ? '<button class="btn ghost" data-reset>Back to template</button>' : '') : '<button class="btn danger" data-del>Delete</button>'}
@@ -189,6 +195,16 @@ function bindCard(card: HTMLElement) {
     refreshChip();
     scheduleSave();
   }));
+  card.querySelector<HTMLSelectElement>('[data-bloom]')?.addEventListener('change', (ev) => {
+    const e = own(id);
+    const sp = (ev.target as HTMLSelectElement).value;
+    e.unlock = { ...(e.unlock ?? {}) };
+    if (sp) e.unlock.flag = bloomFlag(sp); else delete e.unlock.flag;
+    if (!e.title.trim()) e.title = strip(template(id)?.title) || e.title;
+    card.querySelector('.when')!.textContent = `She sees it ${unlockText(e)} · in ${KIND[kind].where}`;
+    refreshChip();
+    scheduleSave();
+  });
   card.querySelector<HTMLInputElement>('[data-photo]')?.addEventListener('change', async (ev) => {
     const file = (ev.target as HTMLInputElement).files?.[0];
     if (!file) return;
@@ -256,6 +272,49 @@ function renderEntries() {
   });
   main.querySelectorAll<HTMLElement>('.card').forEach(bindCard);
   updateCounts();
+}
+
+// ------------------------------------------------------------------ garden: special flowers
+
+function renderGarden() {
+  const main = document.querySelector('.au-main') as HTMLElement;
+  main.innerHTML = `<p class="lead">Six special flowers grow from mystery seeds in the garden (from level 5), always in this order.
+      When one blooms for the first time, your little scene plays, and any letter, photo or memory you linked to it opens in her Journal.</p>
+    <div class="cards">${SPECIALS.map((s, i) => {
+      const linked = data.entries.filter((e) => bloomOf(e)?.id === s.id);
+      return `<article class="card" data-sp="${s.id}">
+        <header><span class="kind">${s.emoji} ${i + 1}. ${esc(s.name)}</span><span class="status">${data.garden[s.id]?.scene ? '<span class="chip ok">Scene written ✓</span>' : '<span class="chip tmpl">Default line</span>'}</span></header>
+        <p class="when">Grows in ${s.growMin >= 60 ? `${s.growMin / 60} h` : `${s.growMin} min`} · before it blooms she reads: “${esc(s.hint)}”</p>
+        <label>The scene when it blooms <span>(one line each; start with <b>her:</b> or <b>him:</b> for who says it, anything else is narration)</span>
+          <textarea data-scene rows="5" placeholder="him: ${esc(s.line)}">${esc(data.garden[s.id]?.scene ?? '')}</textarea></label>
+        <div class="row"><span class="when">${linked.length ? `Opens with it: ${linked.map((e) => `${KIND[e.kind].icon} ${esc(e.title || 'untitled')}`).join(', ')}` : 'Nothing linked yet.'}</span><span class="grow"></span>
+          <select data-kind>${(['letter', 'photo', 'memory', 'surprise'] as PersonalKind[]).map((k) => `<option value="${k}">${KIND[k].icon} ${KIND[k].label.replace(/s$/, '')}</option>`).join('')}</select>
+          <button class="btn ghost" data-link>+ Write one for this flower</button></div>
+      </article>`;
+    }).join('')}</div>`;
+  main.querySelectorAll<HTMLElement>('[data-sp]').forEach((card) => {
+    const id = card.dataset.sp!;
+    card.querySelector('[data-scene]')!.addEventListener('input', (e) => {
+      const v = (e.target as HTMLTextAreaElement).value;
+      if (v.trim()) data.garden[id] = { scene: v }; else delete data.garden[id];
+      card.querySelector('.status')!.innerHTML = v.trim() ? '<span class="chip ok">Scene written ✓</span>' : '<span class="chip tmpl">Default line</span>';
+      scheduleSave();
+    });
+    card.querySelector('[data-link]')!.addEventListener('click', () => {
+      const kind = (card.querySelector('[data-kind]') as HTMLSelectElement).value as PersonalKind;
+      let n = 1;
+      while (allIds().includes(`garden-${kind}-${n}`)) n++;
+      data.entries.push({ id: `garden-${kind}-${n}`, kind, title: '', body: '', unlock: { flag: bloomFlag(id) } });
+      filter = kind;
+      tab = 'entries';
+      scheduleSave();
+      render();
+      const cards = document.querySelectorAll<HTMLElement>('.card');
+      const last = cards[cards.length - 1];
+      last?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      last?.querySelector<HTMLInputElement>('[data-f=title]')?.focus();
+    });
+  });
 }
 
 // ------------------------------------------------------------------ special days
@@ -399,12 +458,12 @@ function render() {
       <a class="btn ghost" href="/" target="_blank" rel="noopener">Open the game ↗</a>
     </header>
     <nav class="au-tabs">
-      ${([['entries', '💌 Letters & memories'], ['days', '🎉 Special days'], ['names', '💕 Names & words'], ['backup', '💾 Backup']] as const)
+      ${([['entries', '💌 Letters & memories'], ['garden', '🌷 Garden flowers'], ['days', '🎉 Special days'], ['names', '💕 Names & words'], ['backup', '💾 Backup']] as const)
         .map(([k, l]) => `<button data-tab="${k}" class="${tab === k ? 'on' : ''}">${l}</button>`).join('')}
     </nav>
     <main class="au-main"></main>`;
   app.querySelectorAll<HTMLElement>('[data-tab]').forEach((b) => b.addEventListener('click', () => { tab = b.dataset.tab as typeof tab; render(); }));
-  ({ entries: renderEntries, days: renderDays, names: renderNames, backup: renderBackup })[tab]();
+  ({ entries: renderEntries, garden: renderGarden, days: renderDays, names: renderNames, backup: renderBackup })[tab]();
 }
 
 async function start() {

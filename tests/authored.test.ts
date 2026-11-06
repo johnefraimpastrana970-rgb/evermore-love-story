@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { AUTHORED, mergeEntries, mergeGreetings, mergeOccasions, normalizeAuthored } from '../src/content/authored';
+import { AUTHORED, mergeEntries, mergeGreetings, mergeOccasions, normalizeAuthored, parseScene } from '../src/content/authored';
 import { PERSONAL, PERSONAL_TEMPLATES } from '../src/content/personal';
 import { OCCASION_TEMPLATES } from '../src/content/occasions';
 import { activeOccasions } from '../src/systems/occasions';
@@ -50,6 +50,22 @@ describe('authored content (Author tool)', () => {
     const hidden = mergeEntries(PERSONAL_TEMPLATES, { ...a, hideTemplates: true });
     expect(hidden.every((e) => !e.placeholder)).toBe(true);
     expect(hidden.map((e) => e.id).sort()).toEqual(['letter-welcome', 'my-joke-1']);
+  });
+
+  it('garden bloom scenes: only for real special plants, parsed by speaker', () => {
+    const a = normalizeAuthored({ garden: { 'sp-moonpetal': { scene: 'him: Look, it’s glowing.\n\nThe petals open slowly.\nHER : For me?' }, 'sp-fake': { scene: 'x' }, 'sp-starbloom': { scene: '   ' } } });
+    expect(Object.keys(a.garden)).toEqual(['sp-moonpetal']);
+    expect(parseScene(a.garden['sp-moonpetal'].scene)).toEqual([
+      { speaker: 'him', text: 'Look, it’s glowing.' },
+      { speaker: 'narrator', text: 'The petals open slowly.' },
+      { speaker: 'her', text: 'For me?' },
+    ]);
+    expect(normalizeAuthored({}).garden).toEqual({});
+  });
+
+  it('an entry can open when a garden flower blooms', () => {
+    const a = normalizeAuthored({ entries: [{ id: 'garden-letter-1', kind: 'letter', title: 'Moon', body: 'Hi', unlock: { flag: 'garden-bloom:sp-moonpetal' } }] });
+    expect(a.entries[0].unlock).toEqual({ flag: 'garden-bloom:sp-moonpetal' });
   });
 
   it('a special day with a date switches on, with its own greeting', () => {

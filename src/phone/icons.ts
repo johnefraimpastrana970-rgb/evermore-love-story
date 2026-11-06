@@ -38,6 +38,10 @@ export const APP_ICON: Record<AppId, { bg: [string, string]; svg: string }> = {
     bg: ['#ffe08a', '#f2a93b'],
     svg: '<path d="M24 8a10 10 0 0 0-10 10v8l-4 6h28l-4-6v-8A10 10 0 0 0 24 8z" fill="#fff"/><circle cx="24" cy="37" r="4" fill="#fff"/>',
   },
+  garden: {
+    bg: ['#9be38a', '#3f9a53'],
+    svg: '<path d="M24 40V22" stroke="#fff" stroke-width="3.2" stroke-linecap="round"/><path d="M24 30c-6 0-10-3-11-8 6 0 10 3 11 8zM24 27c5 0 9-3 10-7-5 0-9 3-10 7z" fill="#fff" opacity=".85"/><circle cx="24" cy="15" r="4" fill="#ffd36b"/><g fill="#fff"><circle cx="24" cy="9.5" r="3.6"/><circle cx="29.2" cy="13.3" r="3.6"/><circle cx="27.2" cy="19.4" r="3.6"/><circle cx="20.8" cy="19.4" r="3.6"/><circle cx="18.8" cy="13.3" r="3.6"/></g><circle cx="24" cy="15" r="3.2" fill="#ffd36b"/><path d="M12 40h24" stroke="#fff" stroke-width="3" stroke-linecap="round" opacity=".7"/>',
+  },
   rps: {
     bg: ['#ffb3c7', '#b45fd1'],
     svg: '<circle cx="14" cy="16" r="7" fill="#fff"/><rect x="27" y="9" width="14" height="14" rx="3" fill="#fff" opacity=".9"/><path d="M15 30l9 10M24 30l-9 10" stroke="#fff" stroke-width="3.4" stroke-linecap="round"/><circle cx="35" cy="35" r="5" fill="none" stroke="#fff" stroke-width="3"/>',

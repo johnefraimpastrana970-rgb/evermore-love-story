@@ -10,4 +10,5 @@ import './snake';
 import './maze';
 import './rps';
 import './notifications';
+import './garden';
 import './apps.css';

@@ -39,4 +39,5 @@ export const bus = new Bus();
  *  time             – time of day changed
  *  cosmetics        – equipped cosmetics changed
  *  settings         – settings changed
+ *  garden:ready     – [{plot, plantId}] plants that just became ready while the garden is on screen
  */

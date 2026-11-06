@@ -209,3 +209,15 @@
 .notif-meta { flex: none !important; align-items: flex-end; gap: 3px; }
 .tag { font-style: normal; font-size: 10px; padding: 1px 6px; border-radius: 8px; background: #f2e6ee; color: var(--ink-soft); }
 .tag.miss { background: #fff1d6; color: #9a6b00; }
+
+/* Garden */
+.gdp { padding: 10px 12px 14px; display: flex; flex-direction: column; gap: 10px; }
+.gdp-sum { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
+.gdp-sum span { display: flex; flex-direction: column; align-items: center; padding: 8px 4px; border-radius: 14px; background: #eef8e8; }
+.gdp-sum b { font-size: 16px; color: #2f7a40; }
+.gdp-sum small { font-size: 11px; color: var(--ink-soft); }
+.gdp-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
+.gdp-plot { display: flex; flex-direction: column; align-items: center; padding: 4px 2px 6px; border-radius: 14px; background: #a8744c; color: #fff; }
+.gdp-plot.ready { box-shadow: 0 0 0 2px #ffe27a, 0 0 12px rgba(255, 226, 122, .8); }
+.gdp-plot small { font-size: 10px; text-align: center; line-height: 1.2; }
+.gdp-note { margin: 0; font-size: 13px; color: #7a4fb0; background: #f6efff; padding: 6px 10px; border-radius: 12px; }

@@ -19,6 +19,11 @@ import { setPrompt, showHud } from '../ui/hud';
 import { showJoystick } from '../ui/joystick';
 import { locationCard, fadeOut, fadeIn, welcome } from '../ui/overlays';
 import { CoupleDirector } from './couple';
+import { openGarden } from '../garden/garden';
+import { gardenUnlocked } from '../garden/unlock';
+
+/** A hotspot's on-screen name (the backyard flower bed becomes our garden at level 5). */
+const hotspotLabel = (h: Hotspot) => (h.id === 'yard-flowers' && gardenUnlocked() ? 'Our Garden 🌷' : store.fmt(h.label));
 
 interface WorldData { location: LocationId; spawnX?: number; spawnY?: number; fromLoad?: boolean; intro?: boolean }
 
@@ -231,7 +236,7 @@ export class WorldScene extends Phaser.Scene {
     for (const h of this.loc.hotspots) {
       if (!checkCondition(h.if, c)) continue;
       const zone = this.add.zone(h.x, h.y, h.w, h.h).setOrigin(0).setDepth(-5);
-      const label = this.add.text(h.x + h.w / 2, Math.max(28, h.y - 14), store.fmt(h.label), {
+      const label = this.add.text(h.x + h.w / 2, Math.max(28, h.y - 14), hotspotLabel(h), {
         fontFamily: 'Fredoka, sans-serif', fontSize: '20px', color: '#5a2a44', backgroundColor: '#fff6eecc',
         padding: { x: 10, y: 5 },
       }).setOrigin(0.5, 1).setDepth(9600).setVisible(false);
@@ -249,7 +254,7 @@ export class WorldScene extends Phaser.Scene {
         audio.unlock();
         audio.sfx('click');
         this.pressHotspot(h);
-        this.walkToTarget({ kind: 'hotspot', x: this.standX(h), label: store.fmt(h.label), h });
+        this.walkToTarget({ kind: 'hotspot', x: this.standX(h), label: hotspotLabel(h), h });
       });
       this.hotspotObjs.push(obj);
     }
@@ -542,6 +547,12 @@ export class WorldScene extends Phaser.Scene {
     // Turn toward the object she's using.
     const hx = h.x + h.w / 2;
     if (Math.abs(hx - this.player.x) > 20) this.mo(this.player).faceT = hx > this.player.x ? 1 : -1;
+    // From level 5 the backyard flower bed is our garden.
+    if (h.id === 'yard-flowers' && gardenUnlocked()) {
+      await openGarden();
+      interact(h.id);
+      return;
+    }
     switch (a.kind) {
       case 'inspect': {
         const v = pickVariant(a.texts, condCtx());
@@ -740,7 +751,7 @@ export class WorldScene extends Phaser.Scene {
       }
       if (o.revealed && near < 85 && near < bestD) {
         bestD = near;
-        best = { kind: 'hotspot', x: sx, label: store.fmt(o.h.label), h: o.h };
+        best = { kind: 'hotspot', x: sx, label: hotspotLabel(o.h), h: o.h };
       }
     }
     if (this.him) {

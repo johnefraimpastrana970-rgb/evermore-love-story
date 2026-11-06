@@ -246,7 +246,7 @@ function renderHome() {
           <span><b>Up next</b><small>${next ? esc(next) : 'Nothing planned'}</small></span>
         </button>
       </div>
-      <div class="home-grid">${APP_ORDER.map((id) => {
+      <div class="home-grid">${APP_ORDER.filter((id) => !(id === 'garden' && !store.state.garden.unlocked)).map((id) => {
         const app = registry.get(id);
         return `<button class="app-icon" data-go="${id}" ${app ? '' : 'disabled'}>${iconTile(id, now.getDate())}
           ${id === 'messages' && unread ? `<i class="badge">${unread}</i>` : ''}<span>${esc(app?.name ?? id)}</span></button>`;

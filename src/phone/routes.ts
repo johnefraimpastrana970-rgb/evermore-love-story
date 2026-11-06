@@ -1,7 +1,6 @@
 import type { AppId } from './types';
 
-export const APP_ORDER: AppId[] = ['messages', 'contacts', 'gallery', 'calendar', 'notes', 'calculator', 'snake', 'maze', 'rps'];
-/** Screens that open by route but have no home-screen icon. */
+export const APP_ORDER: AppId[] = ['messages', 'contacts', 'gallery', 'calendar', 'notes', 'calculator', 'garden', 'snake', 'maze', 'rps'];/** Screens that open by route but have no home-screen icon. */
 export const EXTRA_ROUTES: AppId[] = ['notifications'];
 
 /**

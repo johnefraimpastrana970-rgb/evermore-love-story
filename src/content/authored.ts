@@ -1,5 +1,6 @@
 import type { Condition, OccasionDef, OccasionRule, PersonalEntry, PersonalKind, TimeOfDay } from './types';
 import data from './authored.json';
+import { SPECIALS } from '../garden/data';
 
 /*
  * Content written in the Author tool (`npm run author`). It is saved to src/content/authored.json and bundled into
@@ -25,6 +26,20 @@ export interface AuthoredContent {
   occasions: Record<string, OccasionOverride>;
   /** Extra chalkboard-puzzle words. */
   words: string[];
+  /** Garden special plant id -> the little scene that plays when it first blooms. */
+  garden: Record<string, { scene: string }>;
+}
+
+export type SceneLine = { speaker: 'her' | 'him' | 'narrator'; text: string };
+/**
+ * A bloom scene as written in the Author tool: one line per paragraph, "her: …" or "him: …" for who speaks
+ * (always the real her and him), anything else is narration.
+ */
+export function parseScene(text: string): SceneLine[] {
+  return text.split(/\n+/).map((raw) => raw.trim()).filter(Boolean).map((line) => {
+    const m = /^(her|him)\s*:\s*(.+)$/i.exec(line);
+    return m ? { speaker: m[1].toLowerCase() as 'her' | 'him', text: m[2].trim() } : { speaker: 'narrator' as const, text: line };
+  });
 }
 
 export const PERSONAL_KINDS: PersonalKind[] = ['letter', 'message', 'memory', 'photo', 'joke', 'date', 'challenge', 'surprise'];
@@ -99,7 +114,13 @@ export function normalizeAuthored(raw: unknown): AuthoredContent {
     .map((w) => str(w, 24).toUpperCase().replace(/[^A-Z]/g, ''))
     .filter((w, i, a) => w.length >= 3 && a.indexOf(w) === i)
     .slice(0, 200);
-  return { version: 1, names: { her: str(names.her, 40), him: str(names.him, 40) }, hideTemplates: r.hideTemplates === true, entries, occasions, words };
+  const garden: Record<string, { scene: string }> = {};
+  if (isObj(r.garden)) for (const s of SPECIALS) {
+    const g = r.garden[s.id];
+    const scene = isObj(g) ? str(g.scene, 4000).trim() : '';
+    if (scene) garden[s.id] = { scene };
+  }
+  return { version: 1, names: { her: str(names.her, 40), him: str(names.him, 40) }, hideTemplates: r.hideTemplates === true, entries, occasions, words, garden };
 }
 
 /** Templates + authored entries: authored ones replace same-id templates (and are never placeholders). */

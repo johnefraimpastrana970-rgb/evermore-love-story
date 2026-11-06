@@ -286,7 +286,9 @@ export type SfxName =
   | 'collect' | 'click' | 'open' | 'close' | 'levelup' | 'achievement' | 'quest' | 'error'
   | 'door' | 'type' | 'secret' | 'success' | 'fail' | 'hit' | 'heart'
   // pizza shop
-  | 'bell' | 'squish' | 'sizzle' | 'ding' | 'register' | 'chime' | 'chop' | 'plop' | 'stretch';
+  | 'bell' | 'squish' | 'sizzle' | 'ding' | 'register' | 'chime' | 'chop' | 'plop' | 'stretch'
+  // garden
+  | 'water' | 'dig' | 'harvest' | 'bloom';
 
 class AudioEngine {
   ctx?: AudioContext;
@@ -443,6 +445,14 @@ class AudioEngine {
       case 'chime': [784, 988, 1175, 1568, 1976, 2349].forEach((f, i) => tone(f, i * 0.07, 0.9, 0.08)); break;
       case 'chop': noiseHit(2400, 0.07, 0.14, 'bandpass', 0, 1.5); tone(240, 0, 0.06, 0.06, 'triangle', 140); break;
       case 'plop': tone(520 + Math.random() * 120, 0, 0.09, 0.07, 'sine', 300); break;
+      // --- garden
+      case 'water': // a soft pour: filtered noise swelling and fading, plus a few droplets
+        noiseHit(1800, 0.7, 0.07, 'bandpass', 0, 0.8, 0.12);
+        [0.2, 0.34, 0.5].forEach((st) => tone(900 + Math.random() * 500, st, 0.08, 0.04, 'sine', 1600));
+        break;
+      case 'dig': noiseHit(260, 0.18, 0.16, 'lowpass', 0, 1.2); noiseHit(420, 0.14, 0.1, 'lowpass', 0.16, 1.2); break;
+      case 'harvest': tone(660, 0, 0.08, 0.08, 'sine', 990); tone(1318, 0.08, 0.3, 0.1); tone(1760, 0.14, 0.35, 0.06); break;
+      case 'bloom': [523, 784, 1046, 1318, 1568, 2093].forEach((f, i) => tone(f, i * 0.11, 1.4, 0.07)); noiseHit(6000, 1.2, 0.02, 'highpass', 0.1, 0.7, 0.4); break;
     }
   }
 }

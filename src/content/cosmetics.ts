@@ -23,6 +23,7 @@ export const COSMETICS: CosmeticDef[] = [
   { id: 'outfit-cherry', name: 'Cherry Red', slot: 'herOutfit', color: 0xc8324a, unlockLevel: 10 },
   { id: 'outfit-sailor', name: 'School Navy', slot: 'herOutfit', color: 0x2f3e66, unlockLevel: 5 },
   { id: 'outfit-starlight', name: 'Starlight Gown', slot: 'herOutfit', color: 0x3a2f6e, unlockLevel: 20 },
+  { id: 'outfit-garden-dress', name: 'Heartvine Sundress', slot: 'herOutfit', color: 0x9fd8a4, garden: true },
   // Her accent
   { id: 'accent-ribbon-sakura', name: 'Sakura Bow', slot: 'herAccent', color: 0xf4a3bb },
   { id: 'accent-ribbon-red', name: 'Red Ribbon', slot: 'herAccent', color: 0xd8344f },
@@ -30,6 +31,7 @@ export const COSMETICS: CosmeticDef[] = [
   { id: 'accent-ribbon-gold', name: 'Gold Ribbon', slot: 'herAccent', color: 0xf0c050, cost: 40 },
   { id: 'accent-ribbon-blue', name: 'Blue Ribbon', slot: 'herAccent', color: 0x4f7fd8, unlockLevel: 7 },
   { id: 'accent-ribbon-pink', name: 'Pink Ribbon', slot: 'herAccent', color: 0xff8fb8, cost: 40 },
+  { id: 'accent-flower-crown', name: 'Promise Flower Crown', slot: 'herAccent', color: 0xc8324a, garden: true },
   // His hair
   { id: 'his-hair-black', name: 'His Messy Black', slot: 'hisHair', color: 0x1b1418 },
   { id: 'his-hair-ink', name: 'Ink', slot: 'hisHair', color: 0x1f1d26 },
@@ -43,6 +45,7 @@ export const COSMETICS: CosmeticDef[] = [
   { id: 'his-outfit-white', name: 'White Shirt', slot: 'hisOutfit', color: 0xeef0f4, unlockLevel: 2 },
   { id: 'his-outfit-forest', name: 'Forest Green', slot: 'hisOutfit', color: 0x3f6b4f, cost: 50 },
   { id: 'his-outfit-maroon', name: 'Maroon', slot: 'hisOutfit', color: 0x7a2a3a, unlockLevel: 9 },
+  { id: 'his-outfit-garden', name: 'Heartvine Gardener', slot: 'hisOutfit', color: 0x5f8f5a, garden: true },
 ];
 
 export function cosmetic(id: string): CosmeticDef | undefined {

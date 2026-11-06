@@ -25,6 +25,7 @@ import { initPhone } from './phone/phone';
 import { initBanner } from './phone/banner';
 import { startScheduler } from './phone/scheduler/scheduler';
 import { initPizza } from './pizza/unlock';
+import { initGarden } from './garden/unlock';
 import './phone/apps';
 import { HER_PORTRAITS, HIS_PORTRAITS } from './content/characters';
 
@@ -53,6 +54,7 @@ async function boot() {
   initBanner();
   startScheduler();
   initPizza();
+  initGarden();
   audio.setVolumes(store.settings);
   void cloud.init();
 

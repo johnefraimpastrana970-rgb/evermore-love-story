@@ -12,6 +12,7 @@ import { RECIPES, SCRAMBLE_WORDS } from '../content/config';
 import { narrate } from './dialogue';
 import { resolveImage } from './panels';
 import { rng } from '../core/rng';
+import { cookingProduce, useProduce } from '../garden/logic';
 
 interface Shell {
   stage: HTMLElement;
@@ -158,8 +159,11 @@ const GAMES: Record<MinigameId, (sh: Shell) => Promise<number | null>> = {
   // ------------------------------------------------------------------ cooking
   async cooking(sh) {
     const recipe = RECIPES[Math.floor(Math.random() * RECIPES.length)];
+    // Fresh garden produce for this recipe makes it extra special (+12, used up at the end).
+    const fresh = store.state.garden.unlocked ? cookingProduce(store.state.garden, recipe.name) : null;
     const box = el('div', 'cook');
     box.innerHTML = `<h3 class="cook-recipe">${esc(recipe.name)}</h3>
+      ${fresh ? `<p class="cook-fresh">${fresh.emoji} With ${esc(fresh.name.toLowerCase())} from our garden! <b>+12</b></p>` : ''}
       <div class="cook-pan"><img src="${iconURL('pancake', 128)}" alt=""></div>
       <div class="cook-step"></div>
       <div class="cook-bar"><div class="zone"><i></i></div><div class="marker"></div></div>
@@ -214,7 +218,9 @@ const GAMES: Record<MinigameId, (sh: Shell) => Promise<number | null>> = {
       pan.classList.remove('bounce'); void pan.offsetWidth; pan.classList.add('bounce');
       await new Promise((r) => setTimeout(r, 650));
     }
-    return Math.round(scores.reduce((a, b) => a + b, 0) / scores.length);
+    const avg = Math.round(scores.reduce((a, b) => a + b, 0) / scores.length);
+    if (fresh && useProduce(store.state.garden, fresh.id)) return Math.min(100, avg + 12);
+    return avg;
   },
 
   // ------------------------------------------------------------------ stars

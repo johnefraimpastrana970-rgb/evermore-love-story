@@ -227,4 +227,6 @@ export interface CosmeticDef {
   style?: 'dress' | 'tee' | 'raglan';
   unlockLevel?: number;
   cost?: number;
+  /** Only given when a special garden plant first blooms. */
+  garden?: boolean;
 }

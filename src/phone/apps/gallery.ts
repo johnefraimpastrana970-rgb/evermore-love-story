@@ -6,6 +6,8 @@ import { PERSONAL } from '../../content/personal';
 import { isUnlocked } from '../../systems/game';
 import { resolveImage } from '../../ui/panels';
 import type { Mood } from '../../content/types';
+import { photoUrl } from '../../garden/draw';
+import { plantDef } from '../../garden/data';
 
 interface Pic { src: string; caption: string; date?: string; template?: boolean }
 
@@ -24,9 +26,16 @@ function albums(): { id: string; name: string; pics: Pic[]; note?: string }[] {
     const table = who === 'her' ? HER_PORTRAITS : HIS_PORTRAITS;
     return MOODS.filter((m) => table[m]).map((m) => ({ src: table[m]!, caption: `${store.nameOf(who)} · ${m}` }));
   };
+  const g = store.state.garden;
+  const garden: Pic[] = [...g.photos].reverse().map((ph) => ({
+    src: photoUrl(ph),
+    caption: ph.kind === 'bouquet' ? `A bouquet of ${[...new Set(ph.flowers ?? [])].map((f) => plantDef(f)?.name.toLowerCase() ?? f).join(', ')}` : 'Our garden ♡',
+    date: new Date(ph.at).toLocaleDateString([], { year: 'numeric', month: 'short', day: 'numeric' }),
+  }));
   return [
     { id: 'memories', name: 'Memories', pics: memories, note: 'Your real photos appear here once they’re added (see CONTENT_GUIDE.md → Photos).' },
     { id: 'us', name: 'Us', pics: [...art(store.playAs()), ...art(store.partner())] },
+    ...(g.unlocked ? [{ id: 'garden', name: 'Garden', pics: garden, note: garden.length ? undefined : 'Take photos of your garden and bouquets with the 📷 button in the garden.' }] : []),
   ];
 }
 

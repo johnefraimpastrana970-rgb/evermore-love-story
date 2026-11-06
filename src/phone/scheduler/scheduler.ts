@@ -59,7 +59,7 @@ function log(entry: Omit<NotificationLog, 'id' | 'channel'> & { channel?: Notifi
   return rec;
 }
 
-function deliver(text: string, at: number, source: NotificationLog['source'], refId: string, title: string, kind: PhoneMessage['kind']): Delivery {
+export function deliver(text: string, at: number, source: NotificationLog['source'], refId: string, title: string, kind: PhoneMessage['kind']): Delivery {
   const message = addMessage({ from: 'partner', text, at, kind, reminderId: source === 'reminder' ? refId : undefined });
   const entry = log({ title, body: text, at, source, refId });
   return { message, log: entry };

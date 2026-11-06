@@ -1,8 +1,9 @@
 import type { LocationId, ObjectiveDef, QuestDef, TimeOfDay } from '../content/types';
 import { defaultPhone, PhoneState } from '../phone/types';
 import { defaultPizza, repairPizza, UNLOCK_LEVEL as PIZZA_UNLOCK, type PizzaState } from '../pizza/logic';
+import { defaultGarden, repairGarden, type GardenState } from '../garden/logic';
 
-export const SAVE_VERSION = 7;
+export const SAVE_VERSION = 8;
 
 /** His real look (from his character art) + the older defaults. */
 export const HIS_DEFAULT_OWNED = ['his-hair-black', 'his-outfit-raglan', 'his-hair-ink', 'his-outfit-navy'];
@@ -80,6 +81,8 @@ export interface GameState {
   phone: PhoneState;
   /** The pizza shop (unlocks at level 10). */
   pizza: PizzaState;
+  /** The backyard garden (unlocks at level 5). Shares the pizza coins. */
+  garden: GardenState;
 }
 
 export function defaultSettings(): Settings {
@@ -142,6 +145,7 @@ export function defaultState(herName = '', hisName = '', playAs: 'her' | 'him' =
     minigameBest: {},
     phone: defaultPhone(),
     pizza: defaultPizza(),
+    garden: defaultGarden(),
   };
 }
 
@@ -194,6 +198,8 @@ export function migrate(raw: unknown): GameState {
   if (s.level >= PIZZA_UNLOCK) s.pizza.unlocked = true;
   // v6 -> v7: pizza of the day, shop decor and a saved shop session.
   repairPizza(s.pizza);
+  // v7 -> v8: the garden. The unlock scene (and starter seeds) plays in the game, not here.
+  repairGarden(s.garden);
   if (s.profile.playAs !== 'him') s.profile.playAs = 'her'; // older saves: she was always the player
   if (!Number.isFinite(s.level) || s.level < 1) s.level = 1;
   if (!Number.isFinite(s.xp) || s.xp < 0) s.xp = 0;

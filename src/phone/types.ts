@@ -1,7 +1,7 @@
 // Data kept by the in-game phone. Stored inside the save (GameState.phone), so it syncs with the rest of the game.
 // Records that can be edited on two devices carry `updatedAt` and a `deleted` tombstone so sync can merge them.
 
-export type AppId = 'messages' | 'contacts' | 'gallery' | 'calendar' | 'notes' | 'calculator' | 'snake' | 'maze' | 'rps' | 'notifications';
+export type AppId = 'messages' | 'contacts' | 'gallery' | 'calendar' | 'notes' | 'calculator' | 'snake' | 'maze' | 'rps' | 'notifications' | 'garden';
 
 export type Repeat = 'none' | 'daily' | 'weekdays' | 'weekly' | 'monthly' | 'yearly';
 
@@ -59,7 +59,7 @@ export interface NotificationLog {
   body: string;
   /** When it was (or should have been) delivered. */
   at: number;
-  source: 'reminder' | 'greeting';
+  source: 'reminder' | 'greeting' | 'garden';
   refId?: string;
   /** How it reached her: inside the game, a browser notification, or an Android notification. */
   channel: 'game' | 'browser' | 'android';

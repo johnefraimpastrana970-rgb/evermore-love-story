@@ -39,7 +39,7 @@ function show(d: Delivery): Promise<void> {
     const reminder = d.log.source === 'reminder';
     const b = el('button', `ph-banner ${reminder ? 'is-reminder' : ''}`, `
       <img src="${partnerAvatar()}" alt="">
-      <span><b>${esc(store.partnerName())}${reminder ? ' · 🔔 Reminder' : ''}</b><small>${esc(d.message.text.split('\n')[0])}</small></span>
+      <span><b>${esc(store.partnerName())}${reminder ? ' · 🔔 Reminder' : d.log.source === 'garden' ? ' · 🌷 Garden' : ''}</b><small>${esc(d.message.text.split('\n')[0])}</small></span>
       <time>now</time>`);
     b.setAttribute('aria-live', 'polite');
     host.appendChild(b);
@@ -58,7 +58,7 @@ function show(d: Delivery): Promise<void> {
     b.addEventListener('pointerup', (e) => {
       if (sy - e.clientY > 25) { close(); return; } // swiped up
       d.log.opened = Date.now();
-      const route = 'messages';
+      const route = d.log.source === 'garden' ? 'garden' : 'messages';
       if (isPhoneOpen()) navigate(route);
       else if (!store.blocked) openPhone(route);
       close();
