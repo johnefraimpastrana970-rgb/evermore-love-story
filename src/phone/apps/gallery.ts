@@ -8,6 +8,8 @@ import { resolveImage } from '../../ui/panels';
 import type { Mood } from '../../content/types';
 import { photoUrl } from '../../garden/draw';
 import { plantDef } from '../../garden/data';
+import { petPhotoUrl } from '../../pets/draw';
+import { breed } from '../../pets/data';
 
 interface Pic { src: string; caption: string; date?: string; template?: boolean }
 
@@ -35,6 +37,11 @@ function albums(): { id: string; name: string; pics: Pic[]; note?: string }[] {
   return [
     { id: 'memories', name: 'Memories', pics: memories, note: 'Your real photos appear here once they’re added (see CONTENT_GUIDE.md → Photos).' },
     { id: 'us', name: 'Us', pics: [...art(store.playAs()), ...art(store.partner())] },
+    ...(store.state.pets.list.length || store.state.pets.photos.length ? [{ id: 'pets', name: 'Pets', pics: [...store.state.pets.photos].reverse().map((ph) => ({
+      src: petPhotoUrl({ room: ph.room, pets: ph.pets.map((x) => ({ ...x, breed: breed(x.breed) ?? breed('cat-orange')! })) }),
+      caption: ph.pets.map((x) => x.name).join(' & '),
+      date: new Date(ph.at).toLocaleDateString([], { year: 'numeric', month: 'short', day: 'numeric' }),
+    })), note: store.state.pets.photos.length ? undefined : 'Tap a pet and press 📷 Photo to fill this album.' }] : []),
     ...(g.unlocked ? [{ id: 'garden', name: 'Garden', pics: garden, note: garden.length ? undefined : 'Take photos of your garden and bouquets with the 📷 button in the garden.' }] : []),
   ];
 }

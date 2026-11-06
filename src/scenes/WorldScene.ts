@@ -25,6 +25,9 @@ import { gardenUnlocked } from '../garden/unlock';
 import { openBento } from '../work/bento';
 import { openDoor, partnerAway, waitingAtDoor } from '../work/work';
 import { UNLOCK_LEVEL as WORK_UNLOCK } from '../work/data';
+import { PetWorld } from '../pets/world';
+import { openPetCard } from '../pets/card';
+import { collectGift } from '../pets/pets';
 
 /** A hotspot's on-screen name (the backyard flower bed becomes our garden at level 5). */
 const hotspotLabel = (h: Hotspot) => {
@@ -82,6 +85,8 @@ export class WorldScene extends Phaser.Scene {
   private followGap = 95;
   /** Couple pose per character: holding hands (which arm) or hugging. */
   private styles = new Map<Phaser.GameObjects.Sprite, CoupleStyle | null>();
+  /** Cats and dogs in this room. */
+  private pets?: PetWorld;
   /** Hold hands until this time (an idle moment), even with the 🤝 button off. */
   private tempHoldUntil = 0;
 
@@ -214,6 +219,12 @@ export class WorldScene extends Phaser.Scene {
       holdHandsFor: (ms) => { this.tempHoldUntil = this.time.now + ms; },
     });
     this.couple.buildProps();
+    this.pets = new PetWorld({
+      scene: this, loc: this.loc, player: () => this.player,
+      onTap: (pet) => void openPetCard(pet, { react: (p, anim, ms, line) => this.pets?.react(p, anim, ms, line) }),
+      onGift: (id) => { collectGift(id); this.pets?.popGift(id); },
+    });
+    this.pets.build();
     this.buildLighting();
     this.buildDecorations();
 
@@ -246,13 +257,15 @@ export class WorldScene extends Phaser.Scene {
     on('reload-world', () => void this.travel(store.state.location));
     // "Hug" in the talk menu (and the long hug when she needs one) plays a real hug in the world.
     on('dialogue:node', (id: string) => { if (id === '__hug' || id === 'feel-hug') void this.couple.hug(id === 'feel-hug' ? 6000 : 2800); });
+    on('pets:changed', () => this.pets?.rebuild());
+    on('pets:gifts', () => this.pets?.syncGifts());
     on('work:leave', () => this.partnerLeaves());
     on('work:home', () => this.partnerArrives());
     on('hands', (holding: boolean) => {
       if (!this.him) return;
       if (holding) { this.couple.emoteAt(this.player, this.him); this.mo(this.him).sqV -= 0.6; }
     });
-    this.events.once('shutdown', () => { this.unsub.forEach((u) => u()); this.couple.destroy(); setPrompt(null); });
+    this.events.once('shutdown', () => { this.unsub.forEach((u) => u()); this.couple.destroy(); this.pets?.destroy(); this.pets = undefined; setPrompt(null); });
 
     this.time_events();
     showHud(true);
@@ -796,6 +809,7 @@ export class WorldScene extends Phaser.Scene {
     const loc = this.loc;
     const s = store.state;
     this.couple.update(dt);
+    this.pets?.update(dt);
     const locked = store.blocked || this.busy || this.leaving || this.couple.active;
     if (!locked) s.playSeconds += dt;
 
