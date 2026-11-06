@@ -1,4 +1,4 @@
-import type { Condition, PanelId, PersonalEntry, PersonalKind, CosmeticDef, Mood } from '../content/types';
+import type { Condition, PanelId, PersonalEntry, PersonalKind, CosmeticDef, Mood, LocationId } from '../content/types';
 import { HER_PORTRAITS, HIS_PORTRAITS } from '../content/characters';
 import { hasArt } from '../art/characters';
 import { burstHearts, freshen } from './fx';
@@ -26,6 +26,7 @@ import { gardenUnlocked } from '../garden/unlock';
 import { stage } from '../garden/logic';
 import { openPetShop, petShopOpen } from '../pets/shop';
 import { SHOP_LEVEL as PET_SHOP_LEVEL } from '../pets/logic';
+import { townMapSvg } from './townmap';
 import { UNLOCK_LEVEL } from '../pizza/logic';
 import { COSMETICS } from '../content/cosmetics';
 import { LOCATIONS, LOCATION_ORDER } from '../content/locations';
@@ -469,70 +470,48 @@ export function openReader(e: PersonalEntry): Promise<void> {
 function renderMap(body: HTMLElement) {
   const s = store.state;
   const map = el('div', 'world-map');
-  map.innerHTML = `<div class="map-art">
-      <div class="map-house"><span>Home</span></div>
-      <div class="map-road"></div>
-      <div class="map-school"><span>School</span></div>
-      <div class="map-yard"></div>
-      <div class="map-town map-pizza"></div>
-      <div class="map-town map-market"></div>
-    </div>`;
-  const art = map.querySelector('.map-art') as HTMLElement;
-  for (const id of LOCATION_ORDER) {
-    const loc = LOCATIONS[id];
-    const here = s.location === id;
-    const pin = el('button', `pin-loc ${here ? 'here' : ''}`, `${iconImg(loc.icon, 56)}<b>${loc.name}</b><small>${here ? 'You are here' : esc(loc.subtitle)}</small>`);
-    pin.style.left = loc.mapPos.x + '%';
-    pin.style.top = loc.mapPos.y + '%';
-    pin.addEventListener('click', () => {
-      if (here) return;
-      closePanel();
-      bus.emit('travel', { to: id });
-    });
-    art.appendChild(pin);
-  }
-  // Town: the pizza shop and the market (open at UNLOCK_LEVEL; a CLOSED banner until then).
-  const open = pizzaUnlocked();
-  for (const town of [
-    { id: 'pizza', name: 'Pizza Shop', sub: s.pizza.open ? 'Open now ♡' : 'Our little shop', icon: '🍕', x: 88, y: 26, go: openPizzaShop },
-    { id: 'market', name: 'Market', sub: 'Buy ingredients', icon: '🧺', x: 53, y: 87, go: openMarket },
-  ]) {
-    const pin = el('button', `pin-loc pin-town ${open ? '' : 'locked'}`, `<span class="pin-emoji">${town.icon}</span><b>${town.name}</b>
-      <small>${open ? esc(town.sub) : `Opens at Lv ${UNLOCK_LEVEL}`}</small>${open ? '' : '<i class="closed-banner">CLOSED</i>'}`);
-    pin.style.left = town.x + '%';
-    pin.style.top = town.y + '%';
-    pin.addEventListener('click', () => {
-      if (!open) { audio.sfx('error'); shake(pin); toast(`The ${town.name} opens when you reach level ${UNLOCK_LEVEL} ♡`, 'heart'); return; }
-      closePanel();
-      void town.go();
-    });
-    art.appendChild(pin);
-  }
-  // The pet shop in town (opens at level 4; a CLOSED banner until then).
-  {
-    const open = petShopOpen();
-    const pin = el('button', `pin-loc pin-town pin-pets ${open ? '' : 'locked'}`, `<span class="pin-emoji">🐾</span><b>Pet Shop</b>
-      <small>${open ? 'Paws & Whiskers' : `Opens at Lv ${PET_SHOP_LEVEL}`}</small>${open ? '' : '<i class="closed-banner">CLOSED</i>'}`);
-    pin.style.left = '39%';
-    pin.style.top = '84%';
-    pin.addEventListener('click', () => {
-      if (!open) { audio.sfx('error'); shake(pin); toast(`The pet shop opens when you reach level ${PET_SHOP_LEVEL} 🐾`, 'heart'); return; }
-      closePanel();
-      void openPetShop();
-    });
-    art.appendChild(pin);
-  }
-  // Our garden, next to the backyard (hidden until it unlocks, so it stays a surprise).
-  if (gardenUnlocked()) {
-    const ready = s.garden.plots.filter((p) => p.plantId && stage(p, Date.now()) === 3).length;
-    const pin = el('button', 'pin-loc pin-town pin-garden', `<span class="pin-emoji">🌷</span><b>Garden</b><small>${ready ? `${ready} ready to pick ♡` : 'Our backyard garden'}</small>`);
-    pin.style.left = '86%';
-    pin.style.top = '60%';
-    pin.addEventListener('click', () => { closePanel(); void openGarden(); });
-    art.appendChild(pin);
-  }
+  map.innerHTML = `<div class="tm-wrap">${townMapSvg({
+    time: store.timeOfDay(), here: s.location, garden: gardenUnlocked(),
+    gardenReady: s.garden.plots.filter((p) => p.plantId && stage(p, Date.now()) === 3).length,
+    pizzaOpen: pizzaUnlocked(), pizzaLevel: UNLOCK_LEVEL, petOpen: petShopOpen(), petLevel: PET_SHOP_LEVEL, shopOpenNow: s.pizza.open,
+  })}</div>`;
+  const wrap = map.querySelector('.tm-wrap') as HTMLElement;
+  const go = (to: LocationId) => { if (s.location === to) return; closePanel(); bus.emit('travel', { to }); };
+  const locked = (spot: Element, what: string, lvl: number, icon: string) => {
+    audio.sfx('error');
+    spot.classList.remove('shake'); void (spot as HTMLElement).getBoundingClientRect(); spot.classList.add('shake');
+    toast(`The ${what} opens when you reach level ${lvl} ${icon}`, 'heart');
+  };
+  // The house: a little card to pick a room.
+  const rooms = () => {
+    wrap.querySelector('.tm-rooms')?.remove();
+    const card = el('div', 'tm-rooms', `<b>🏡 Home</b>${(['bedroom', 'livingroom', 'kitchen'] as LocationId[]).map((id) => {
+      const loc = LOCATIONS[id];
+      return `<button data-room="${id}" class="${s.location === id ? 'here' : ''}">${iconImg(loc.icon, 40)}<span><b>${esc(loc.name)}</b><small>${s.location === id ? 'You are here ♡' : esc(loc.subtitle)}</small></span></button>`;
+    }).join('')}<button class="tm-x" aria-label="Close">✕</button>`);
+    wrap.appendChild(card);
+    card.querySelectorAll<HTMLElement>('[data-room]').forEach((b) => b.addEventListener('click', () => { audio.sfx('click'); go(b.dataset.room as LocationId); }));
+    card.querySelector('.tm-x')!.addEventListener('click', () => card.remove());
+  };
+  wrap.querySelectorAll<SVGGElement>('[data-spot]').forEach((spot) => {
+    const act = () => {
+      audio.unlock();
+      switch (spot.dataset.spot) {
+        case 'home': audio.sfx('click'); rooms(); break;
+        case 'backyard': go('backyard'); break;
+        case 'school': go('school'); break;
+        case 'garden': closePanel(); void openGarden(); break;
+        case 'pizza': if (!pizzaUnlocked()) locked(spot, 'Pizza Shop', UNLOCK_LEVEL, '🍕'); else { closePanel(); void openPizzaShop(); } break;
+        case 'market': if (!pizzaUnlocked()) locked(spot, 'Market', UNLOCK_LEVEL, '🧺'); else { closePanel(); void openMarket(); } break;
+        case 'petshop': if (!petShopOpen()) locked(spot, 'pet shop', PET_SHOP_LEVEL, '🐾'); else { closePanel(); void openPetShop(); } break;
+      }
+    };
+    spot.addEventListener('click', (e) => { e.stopPropagation(); act(); });
+    spot.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); act(); } });
+  });
   body.appendChild(map);
 }
+
 
 // ------------------------------------------------------------------ settings
 function renderSettings(body: HTMLElement, st: PanelState) {
