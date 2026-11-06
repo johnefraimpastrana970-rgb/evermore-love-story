@@ -11,9 +11,11 @@ import { openPanel } from './panels';
 import { HER_AVATAR, HIS_AVATAR } from '../content/characters';
 import { openPhone, unreadCount } from '../phone/phone';
 import { PHONE_GLYPH } from '../phone/icons';
+import { setHoldingHands, toggleHands } from '../systems/hands';
 
 let hud: HTMLElement;
 let promptEl: HTMLElement;
+let handsEl: HTMLElement;
 
 const HEART_PATH = 'M50 88 C20 68 6 50 6 32 C6 18 17 8 30 8 C39 8 46 13 50 21 C54 13 61 8 70 8 C83 8 94 18 94 32 C94 50 80 68 50 88 Z';
 
@@ -55,6 +57,19 @@ export function initHud() {
   uiRoot().appendChild(promptEl);
   promptEl.addEventListener('click', () => { store.joy.action = true; });
 
+  // Hold hands (her choice): on until she lets go.
+  handsEl = el('button', `hands-btn ${isTouch() ? 'touch' : ''}`, '<span>🤝</span><small>Hold hands</small>');
+  handsEl.setAttribute('aria-pressed', 'false');
+  hud.appendChild(handsEl);
+  handsEl.addEventListener('click', () => { audio.unlock(); toggleHands(); });
+  bus.on('hands', (on: boolean) => {
+    handsEl.classList.toggle('on', on);
+    handsEl.setAttribute('aria-pressed', String(on));
+    handsEl.querySelector('small')!.textContent = on ? 'Let go' : 'Hold hands';
+    audio.sfx(on ? 'heart' : 'click');
+  });
+  bus.on('settings', render);
+
   hud.querySelectorAll<HTMLElement>('[data-panel]').forEach((b) =>
     b.addEventListener('click', () => { audio.unlock(); void openPanel(b.dataset.panel as PanelId); }));
   hud.querySelector('.hud-level')!.addEventListener('click', () => void openPanel('character'));
@@ -72,6 +87,7 @@ export function initHud() {
     const map: Record<string, PanelId> = { KeyC: 'character', KeyI: 'inventory', KeyQ: 'quests', KeyJ: 'journal', KeyM: 'map', KeyO: 'settings', Escape: 'settings', Tab: 'inventory' };
     const p = map[e.code];
     if (p) { e.preventDefault(); void openPanel(p); }
+    if (e.code === 'KeyH' && !handsEl.classList.contains('hidden')) { e.preventDefault(); toggleHands(); }
   });
 }
 
@@ -117,6 +133,9 @@ function render() {
   bumpIfChanged(tok, String(s.tokens));
   bumpIfChanged(lvl, String(s.level));
   hud.querySelector('.hud-time')!.textContent = TIME_LABEL[store.timeOfDay()];
+  const follows = store.settings.companionMode === 'follow';
+  handsEl.classList.toggle('hidden', !follows);
+  if (!follows) setHoldingHands(false);
   const badge = hud.querySelector('[data-phone] .badge') as HTMLElement;
   const unread = unreadCount();
   badge.textContent = String(unread);

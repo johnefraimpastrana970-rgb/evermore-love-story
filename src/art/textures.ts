@@ -1,7 +1,7 @@
 import Phaser from 'phaser';
 import type { LocationDef, TimeOfDay } from '../content/types';
 import { ROOMS } from './rooms';
-import { buildSpriteSheet, FRAME_H, FRAME_W, FRAMES, Look } from './characters';
+import { buildCoupleSheet, buildSpriteSheet, COUPLE_COLS, COUPLE_FRAMES, COUPLE_W, FRAME_H, FRAME_W, FRAMES, Look } from './characters';
 import { drawIcon } from './icons';
 import { ellipse, glow, heartPath, makeCanvas, starPath, vgrad, hex, shade, drawStringLights } from './paint';
 import { store } from '../core/store';
@@ -44,6 +44,28 @@ export function ensureCharacter(scene: Phaser.Scene, look: Look): string {
     scene.anims.create({ key: `${key}-idle`, frames: idle.map((f) => ({ key, frame: f })), frameRate: 4.5, repeat: -1 });
   }
   return key;
+}
+
+export type CoupleStyle = 'holdR' | 'holdL' | 'hug';
+
+/**
+ * Builds (once, on first use) the holding-hands and hug frames for a character whose base key is `key`.
+ * Animations: `${key}-holdR-walk|idle`, `${key}-holdL-walk|idle`, `${key}-hugIn`, `${key}-hug`.
+ */
+export function ensureCouple(scene: Phaser.Scene, key: string, look: Look) {
+  const ck = `${key}-c`;
+  if (!scene.textures.exists(ck)) {
+    const tex = scene.textures.addCanvas(ck, buildCoupleSheet(look))!;
+    for (let i = 0; i < COUPLE_FRAMES.total; i++) tex.add(i, 0, (i % COUPLE_COLS) * COUPLE_W, Math.floor(i / COUPLE_COLS) * FRAME_H, COUPLE_W, FRAME_H);
+  }
+  if (scene.anims.exists(`${key}-hug`)) return;
+  const f = (list: number[]) => list.map((frame) => ({ key: ck, frame }));
+  for (const side of ['holdR', 'holdL'] as const) {
+    scene.anims.create({ key: `${key}-${side}-walk`, frames: f(COUPLE_FRAMES[side].walk), frameRate: 13, repeat: -1 });
+    scene.anims.create({ key: `${key}-${side}-idle`, frames: f(COUPLE_FRAMES[side].idle), frameRate: 2.6, repeat: -1, yoyo: true });
+  }
+  scene.anims.create({ key: `${key}-hugIn`, frames: f([COUPLE_FRAMES.hugReach]), frameRate: 4, repeat: 0, duration: 260 });
+  scene.anims.create({ key: `${key}-hug`, frames: f(COUPLE_FRAMES.hug), frameRate: 2.2, repeat: -1, yoyo: true });
 }
 
 function addCanvas(scene: Phaser.Scene, key: string, canvas: HTMLCanvasElement) {

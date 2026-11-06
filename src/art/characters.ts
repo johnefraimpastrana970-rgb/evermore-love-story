@@ -33,6 +33,11 @@ interface Pose {
   liftL?: number; // foot lift (negative = up)
   liftR?: number;
   mood?: Mood;
+  /** Fixed arm angles (radians) that replace the swing: 0 = hanging down, positive = reaching outward. */
+  armL?: number;
+  armR?: number;
+  /** Cheek blush strength 0..1 (default from the mood). */
+  blush?: number;
 }
 
 const SKIN = 0xffe3d2;
@@ -232,7 +237,9 @@ export function drawCharacter(ctx: Ctx, look: Look, pose: Pose = {}) {
     const swing = -side * armSwing * 6;
     ctx.save();
     ctx.translate(cx + side * (tee ? 24 : her ? 20 : 23), 104);
-    ctx.rotate((side * 0.12) + swing * 0.03);
+    const fixed = side < 0 ? pose.armL : pose.armR;
+    // A fixed arm reaches outward to its own side (a hand to hold, an arm around a waist).
+    ctx.rotate(fixed !== undefined ? -side * fixed : (side * 0.12) + swing * 0.03);
     if (raglan) {
       // Long pale-grey hoodie sleeve with a dark cuff, just the hand showing.
       ctx.fillStyle = vgrad(ctx, 0, 54, [[0, shade(SLEEVE_RAGLAN, 0.06)], [1, shade(SLEEVE_RAGLAN, -0.08)]]);
@@ -350,7 +357,7 @@ export function drawCharacter(ctx: Ctx, look: Look, pose: Pose = {}) {
   const mirror = false;
   eye(ctx, cx - 12, headY + 8, look, mood, !!pose.blink, mirror);
   eye(ctx, cx + 13, headY + 8, look, mood, !!pose.blink, mirror);
-  const blushA = mood === 'shy' || mood === 'love' ? 0.65 : 0.35;
+  const blushA = pose.blush ?? (mood === 'shy' || mood === 'love' ? 0.65 : 0.35);
   ellipse(ctx, cx - 19, headY + 20, 6.5, 3.5, `rgba(255,130,160,${blushA})`);
   ellipse(ctx, cx + 20, headY + 20, 6.5, 3.5, `rgba(255,130,160,${blushA})`);
   if (her) {
@@ -489,6 +496,69 @@ export function buildSpriteSheet(look: Look): HTMLCanvasElement {
   poses.forEach((p, i) => {
     ctx.save();
     ctx.translate(i * FRAME_W, 0);
+    drawCharacter(ctx, look, p);
+    ctx.restore();
+  });
+  return c;
+}
+
+// ------------------------------------------------------------------ couple poses (built only when first used)
+
+/** How far apart (in frame pixels) the two stand when holding hands / hugging, and the arm angles that make it work. */
+export const COUPLE = {
+  /** Holding hands: hands meet halfway between two people this far apart. */
+  holdGap: 84,
+  holdArm: 0.4,
+  /** Side hug: close together, the inner arm around the other's waist. */
+  hugGap: 70,
+  hugArm: 1.15,
+  hugReach: 0.55,
+};
+const HOLD_IDLE_N = 6;
+const HUG_N = 4;
+/** Frame layout of the couple sheet. "R" = the held/hugging arm is the sprite's right arm (+x), "L" = left. */
+export const COUPLE_FRAMES = (() => {
+  let i = 0;
+  const run = (n: number) => Array.from({ length: n }, () => i++);
+  return {
+    holdR: { walk: run(WALK_N), idle: run(HOLD_IDLE_N) },
+    holdL: { walk: run(WALK_N), idle: run(HOLD_IDLE_N) },
+    hugReach: run(1)[0],
+    hug: run(HUG_N),
+    get total() { return i; },
+  };
+})();
+export const COUPLE_COLS = 11;
+/** Couple frames are wider so an outstretched arm never gets clipped; the body stays centred. */
+export const COUPLE_W = FRAME_W + 56;
+
+function walkPose(k: number): Pose {
+  const t = (k / WALK_N) * Math.PI * 2;
+  const s = Math.sin(t), co = Math.cos(t);
+  return { phase: s, bob: -2.6 * (1 - Math.abs(s)), liftR: -Math.max(0, co) * 5, liftL: -Math.max(0, -co) * 5, arm: s, sway: 2.2 + Math.sin(t * 2 - 0.9) * 1.2 };
+}
+function idlePose(k: number, n: number): Pose {
+  const t = (k / n) * Math.PI * 2;
+  return { bob: -0.8 - 0.8 * Math.sin(t), sway: Math.sin(t - 1.2) * 1.4, arm: Math.sin(t) * 0.12, phase: 0, liftL: 0, liftR: 0 };
+}
+
+/** Holding hands and hugging, as a separate grid sheet (keeps the everyday sheet small on older phones). */
+export function buildCoupleSheet(look: Look): HTMLCanvasElement {
+  const poses: Pose[] = [];
+  const held = (side: 'L' | 'R', p: Pose): Pose => ({ ...p, [side === 'R' ? 'armR' : 'armL']: COUPLE.holdArm });
+  for (const side of ['R', 'L'] as const) {
+    for (let k = 0; k < WALK_N; k++) poses.push(held(side, walkPose(k)));
+    for (let k = 0; k < HOLD_IDLE_N; k++) poses.push(held(side, idlePose(k, HOLD_IDLE_N)));
+  }
+  // Hug: reach in (a little surprised and in love), then hold with eyes closed, breathing slowly together.
+  poses.push({ ...idlePose(0, HUG_N), armR: COUPLE.hugReach, mood: 'love', blush: 0.7 });
+  for (let k = 0; k < HUG_N; k++) poses.push({ ...idlePose(k, HUG_N), armR: COUPLE.hugArm, mood: 'happy', blush: 0.75, sway: 1.5 });
+  const rows = Math.ceil(poses.length / COUPLE_COLS);
+  const [c, ctx] = makeCanvas(COUPLE_W * COUPLE_COLS, FRAME_H * rows);
+  poses.forEach((p, i) => {
+    ctx.save();
+    ctx.translate((i % COUPLE_COLS) * COUPLE_W + (COUPLE_W - FRAME_W) / 2, Math.floor(i / COUPLE_COLS) * FRAME_H);
+    ctx.beginPath(); ctx.rect(-(COUPLE_W - FRAME_W) / 2, 0, COUPLE_W, FRAME_H); ctx.clip();
     drawCharacter(ctx, look, p);
     ctx.restore();
   });

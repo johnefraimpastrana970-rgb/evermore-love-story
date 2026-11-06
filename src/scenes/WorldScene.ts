@@ -6,8 +6,9 @@ import { bus } from '../core/events';
 import { rng } from '../core/rng';
 import { audio } from '../audio/audio';
 import { AMBIENT } from '../art/paint';
-import { ensureCharacter, ensureRoom, lookFor, ensureDecorLights } from '../art/textures';
-import { FRAME_H } from '../art/characters';
+import { ensureCharacter, ensureCouple, ensureRoom, lookFor, ensureDecorLights, type CoupleStyle } from '../art/textures';
+import { COUPLE, FRAME_H } from '../art/characters';
+import { isHoldingHands } from '../systems/hands';
 import {
   visit, interact, collect, findSecret, applyEffects, topOccasion, ctx as condCtx, startSession,
 } from '../systems/game';
@@ -71,6 +72,46 @@ export class WorldScene extends Phaser.Scene {
   private couple!: CoupleDirector;
   /** How far behind her the partner walks (couple moments bring them closer for a bit). */
   private followGap = 95;
+  /** Couple pose per character: holding hands (which arm) or hugging. */
+  private styles = new Map<Phaser.GameObjects.Sprite, CoupleStyle | null>();
+  /** Hold hands until this time (an idle moment), even with the 🤝 button off. */
+  private tempHoldUntil = 0;
+
+  private keyOf(spr: Phaser.GameObjects.Sprite) { return spr === this.player ? this.herKey : this.hisKey; }
+
+  /** Change a character's couple pose; builds the couple frames the first time they're needed. */
+  private setStyle(spr: Phaser.GameObjects.Sprite, style: CoupleStyle | null) {
+    if ((this.styles.get(spr) ?? null) === style) return;
+    this.styles.set(spr, style);
+    const key = this.keyOf(spr);
+    if (style) ensureCouple(this, key, lookFor(spr === this.player ? store.playAs() : store.partner()));
+    const moving = this.mo(spr).moving;
+    if (style === 'hug') { spr.play(`${key}-hugIn`); spr.chain(`${key}-hug`); }
+    else spr.play(style ? `${key}-${style}-${moving ? 'walk' : 'idle'}` : `${key}-${moving ? 'walk' : 'idle'}`, true);
+  }
+
+  private holdingNow() {
+    return (isHoldingHands() || this.time.now < this.tempHoldUntil) && !!this.him && store.settings.companionMode === 'follow';
+  }
+
+  /** Each frame: show joined hands when they're walking or standing side by side at the right distance. */
+  private updateHands() {
+    const him = this.him;
+    const want = this.holdingNow() && him && !this.couple.active && !this.couple.controls(him) && !this.couple.posedBy(this.player);
+    for (const spr of [this.player, him]) {
+      if (!spr || this.styles.get(spr) === 'hug') continue;
+      let style: CoupleStyle | null = null;
+      if (want) {
+        const other = spr === this.player ? him! : this.player;
+        const gap = COUPLE.holdGap * Math.abs(spr.scaleY);
+        const dx = other.x - spr.x;
+        if (Math.abs(Math.abs(dx) - gap) < gap * 0.3 && Math.abs(other.y - spr.y) < 18) {
+          style = Math.sign(dx) * this.mo(spr).face > 0 ? 'holdR' : 'holdL';
+        }
+      }
+      this.setStyle(spr, style);
+    }
+  }
 
   private mo(spr: Phaser.GameObjects.Sprite): Motion {
     let m = this.motions.get(spr);
@@ -100,7 +141,10 @@ export class WorldScene extends Phaser.Scene {
       m.moving = moving;
     }
     if (Math.abs(tvx) > 8) m.faceT = tvx > 0 ? 1 : -1;
-    const anim = moving ? `${key}-walk` : `${key}-idle`;
+    // A hug is posed by the couple director; holding hands swaps in the walk/idle with a hand reaching out.
+    const style = this.styles.get(spr);
+    if (style === 'hug') return speed;
+    const anim = style ? `${key}-${style}-${moving ? 'walk' : 'idle'}` : moving ? `${key}-walk` : `${key}-idle`;
     if (spr.anims.currentAnim?.key !== anim) spr.play(anim, true);
     // Walk cadence follows actual speed so feet don't slide.
     spr.anims.timeScale = moving ? Phaser.Math.Clamp(speed * 1.05, 0.5, 1.2) : 1;
@@ -127,6 +171,8 @@ export class WorldScene extends Phaser.Scene {
     this.motions = new Map();
     this.unsub = [];
     this.him = undefined;
+    this.styles = new Map();
+    this.tempHoldUntil = 0;
   }
 
   preload() {
@@ -156,6 +202,8 @@ export class WorldScene extends Phaser.Scene {
       shadow: (spr) => this.shadows.get(spr),
       setFollowGap: (px) => { this.followGap = px; },
       burst: (x, y, tex, n) => this.burst(x, y, tex, n),
+      setStyle: (spr, style) => this.setStyle(spr, style),
+      holdHandsFor: (ms) => { this.tempHoldUntil = this.time.now + ms; },
     });
     this.couple.buildProps();
     this.buildLighting();
@@ -188,6 +236,12 @@ export class WorldScene extends Phaser.Scene {
     on('settings', (patch: Record<string, unknown>) => { if ('companionMode' in patch) void this.reload(); });
     on('cosmetics', () => this.refreshLooks());
     on('reload-world', () => void this.travel(store.state.location));
+    // "Hug" in the talk menu (and the long hug when she needs one) plays a real hug in the world.
+    on('dialogue:node', (id: string) => { if (id === '__hug' || id === 'feel-hug') void this.couple.hug(id === 'feel-hug' ? 6000 : 2800); });
+    on('hands', (holding: boolean) => {
+      if (!this.him) return;
+      if (holding) { this.couple.emoteAt(this.player, this.him); this.mo(this.him).sqV -= 0.6; }
+    });
     this.events.once('shutdown', () => { this.unsub.forEach((u) => u()); this.couple.destroy(); setPrompt(null); });
 
     this.time_events();
@@ -324,6 +378,7 @@ export class WorldScene extends Phaser.Scene {
   }
 
   private refreshLooks() {
+    this.styles = new Map(); // couple frames are per outfit: rebuilt on next use
     this.herKey = ensureCharacter(this, lookFor(store.playAs()));
     this.player.setTexture(this.herKey, 0).play(`${this.herKey}-idle`);
     if (this.him) {
@@ -721,6 +776,7 @@ export class WorldScene extends Phaser.Scene {
     s.y = Math.round(this.player.y);
 
     if (!this.him || !this.couple.controls(this.him)) this.updateCompanion(dt, moving);
+    this.updateHands();
     if (!this.couple.posedBy(this.player)) this.present(this.player, dt);
     if (this.him && !this.couple.posedBy(this.him)) this.present(this.him, dt);
 
@@ -783,7 +839,22 @@ export class WorldScene extends Phaser.Scene {
     const loc = this.loc;
     const m = this.mo(him);
     let tvx = 0, tvy = 0;
-    if (store.settings.companionMode === 'follow') {
+    const holding = this.holdingNow();
+    if (holding) {
+      // Holding hands: stay right beside her on whichever side he's on (turning around doesn't make him walk
+      // around her), at the distance where their hands meet. He keeps pace, with a little jog to catch up.
+      let side = Math.sign(him.x - this.player.x) || -this.facing;
+      const gap = COUPLE.holdGap * (Math.abs(this.player.scaleY) || 0.9);
+      if (this.player.x + side * gap < 40 || this.player.x + side * gap > loc.width - 40) side = -side;
+      const tx = this.player.x + side * gap;
+      const ty = Phaser.Math.Clamp(this.player.y - 2, loc.floorTop, loc.floorBottom);
+      // Match her actual speed, plus a correction toward the hand-holding spot (so he never lags behind).
+      const pm = this.mo(this.player);
+      const dx = tx - him.x, dy = ty - him.y;
+      tvx = Phaser.Math.Clamp(pm.vx + dx * 8, -SPEED * 1.4, SPEED * 1.4);
+      tvy = Phaser.Math.Clamp(pm.vy + dy * 8, -SPEED, SPEED);
+      if (Math.abs(tvx) < 6 && Math.abs(tvy) < 6) { tvx = 0; tvy = 0; }
+    } else if (store.settings.companionMode === 'follow') {
       // Follow a spot just behind her; speed scales with distance so he glides in and settles.
       const tx = Phaser.Math.Clamp(this.player.x - this.facing * this.followGap, 40, loc.width - 40);
       const ty = Phaser.Math.Clamp(this.player.y - 10, loc.floorTop, loc.floorBottom);
@@ -797,8 +868,9 @@ export class WorldScene extends Phaser.Scene {
     }
     this.drive(him, this.hisKey, tvx, tvy, dt);
     const moving = m.moving;
-    // When standing, turn to look at her.
-    if (!moving && Math.abs(this.player.x - him.x) > 6) m.faceT = this.player.x < him.x ? -1 : 1;
+    // When standing, turn to look at her (holding hands, they face the same way she does).
+    if (!moving && holding) m.faceT = this.facing;
+    else if (!moving && Math.abs(this.player.x - him.x) > 6) m.faceT = this.player.x < him.x ? -1 : 1;
 
     // Occasional heart emote when idle together.
     this.emoteTimer -= dt;

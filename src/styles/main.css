@@ -222,6 +222,20 @@ code { font-size: .85em; background: rgba(232, 87, 125, .1); padding: 1px 6px; b
 }
 .joy-act:active { transform: scale(.92); }
 
+/* ---------- hold hands ---------- */
+.hands-btn {
+  position: fixed; right: calc(24px + var(--safe-r)); bottom: calc(24px + var(--safe-b)); z-index: 5; display: flex; flex-direction: column; align-items: center;
+  width: 74px; padding: 8px 4px 6px; border: 0; border-radius: 22px; background: rgba(255, 250, 246, .92); box-shadow: var(--shadow);
+  font: inherit; color: var(--ink-soft); cursor: pointer; pointer-events: auto; transition: transform .2s var(--spring), background .2s;
+}
+.hands-btn span { font-size: 28px; line-height: 1; transition: transform .3s var(--spring); }
+.hands-btn small { font-size: 10px; font-weight: 600; margin-top: 2px; white-space: nowrap; }
+.hands-btn.touch { right: calc(44px + var(--safe-r)); bottom: calc(146px + var(--safe-b)); width: 64px; }
+.hands-btn.on { background: linear-gradient(#ffd6e2, #ffb3c8); color: var(--rose-deep); box-shadow: 0 0 0 3px rgba(255, 255, 255, .8), 0 6px 18px rgba(232, 87, 125, .35); }
+.hands-btn.on span { transform: scale(1.12) rotate(-6deg); }
+.hands-btn:active { transform: scale(.92); }
+.hands-btn.hidden { display: none; }
+
 /* ---------- toasts ---------- */
 .toasts { position: fixed; top: calc(90px + var(--safe-t)); left: 50%; transform: translateX(-50%); display: flex; flex-direction: column; gap: 8px; align-items: center; pointer-events: none; z-index: 70; }
 .toast {

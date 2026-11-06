@@ -3,7 +3,7 @@ import type { Hotspot, LocationDef } from '../content/types';
 import { store } from '../core/store';
 import { bus } from '../core/events';
 import { audio } from '../audio/audio';
-import { FRAME_H } from '../art/characters';
+import { COUPLE, FRAME_H } from '../art/characters';
 import { setPrompt } from '../ui/hud';
 
 /*
@@ -29,6 +29,10 @@ export interface CoupleHost {
   shadow(spr: Phaser.GameObjects.Sprite): Phaser.GameObjects.Image | undefined;
   setFollowGap(px: number): void;
   burst(x: number, y: number, tex: string, n: number): void;
+  /** Switch a character to a couple pose (hug) or back to normal (null). */
+  setStyle(spr: Phaser.GameObjects.Sprite, style: 'hug' | null): void;
+  /** Hold hands for a little while (an idle moment), even if the 🤝 button is off. */
+  holdHandsFor(ms: number): void;
 }
 
 /** Hips sit this far above the feet in the sprite frame (legs below are what hangs/hides when seated). */
@@ -244,6 +248,10 @@ export class CoupleDirector {
     s.tweens.add({ targets: o, scale: glyph === 'heart' ? 0.65 : 1, y: y - 34, duration: 480, ease: 'Back.easeOut' });
     s.tweens.add({ targets: o, alpha: 0, y: y - 60, delay: 1100, duration: 500, onComplete: () => o.destroy() });
   }
+  /** A heart between two people, around hand height (they just took each other's hand). */
+  emoteAt(a: Phaser.GameObjects.Sprite, b: Phaser.GameObjects.Sprite) {
+    this.emote((a.x + b.x) / 2, a.y - FRAME_H * Math.abs(a.scaleY) * 0.42, 'heart');
+  }
   private headY(spr: Phaser.GameObjects.Sprite) { return spr.y - FRAME_H * Math.abs(spr.scaleY) * 0.95; }
   private bounce(spr: Phaser.GameObjects.Sprite, amount = 0.9) { this.h.motion(spr).sqV -= amount; }
   private tilt(spr: Phaser.GameObjects.Sprite, rad: number, ms: number) {
@@ -456,6 +464,78 @@ export class CoupleDirector {
     }
   }
 
+  // ---------------------------------------------------------------- hug
+  /**
+   * A real hug: he comes close, they turn to each other, wrap an arm around each other's waist and lean their
+   * heads together, eyes closed, swaying a little while hearts float up. Lasts at least `minMs`, and as long as the
+   * conversation about it is still open (up to 14 s).
+   */
+  async hug(minMs = 2800) {
+    const player = this.h.player(), partner = this.h.partner();
+    if (!partner || this.active || this.dead || store.settings.companionMode === 'hidden') return;
+    const s = this.h.scene;
+    const reduced = store.settings.reducedMotion;
+    const wait = (ms: number) => new Promise<void>((r) => s.time.delayedCall(ms, r));
+    this.active = true;
+    try {
+      const sc = Math.abs(player.scaleY) || 0.9;
+      const loc = this.h.loc();
+      let side = Math.sign(partner.x - player.x) || -this.h.motion(player).face;
+      if (player.x + side * COUPLE.hugGap * sc < 40 || player.x + side * COUPLE.hugGap * sc > loc.width - 40) side = -side;
+      const tx = player.x + side * COUPLE.hugGap * sc, ty = Phaser.Math.Clamp(player.y - 3, loc.floorTop, loc.floorBottom);
+      this.held.add(player);
+      // He hurries over (a little jog if he's far), and she turns to him.
+      this.h.motion(player).faceT = side;
+      await Promise.race([this.walk(partner, tx, ty), wait(1500)]);
+      this.walking.delete(partner);
+      if (Math.hypot(partner.x - tx, partner.y - ty) > 6) {
+        await new Promise<void>((r) => s.tweens.add({ targets: partner, x: tx, y: ty, duration: reduced ? 1 : 260, ease: 'Sine.easeOut', onComplete: () => r() }));
+      }
+      if (this.dead) return;
+      this.held.add(partner);
+      this.faceEachOther();
+      this.h.setStyle(player, 'hug');
+      this.h.setStyle(partner, 'hug');
+      audio.sfx('heart');
+      // Lean in: heads together.
+      const towards = Math.sign(partner.x - player.x) || 1;
+      const mp = this.h.motion(player), mq = this.h.motion(partner);
+      // Lean from the feet, so a little goes a long way at head height.
+      mp.tiltT = towards * 0.04;
+      mq.tiltT = -towards * 0.055;
+      this.bounce(player, 0.7); this.bounce(partner, 0.7);
+      const mid = () => (player.x + partner.x) / 2;
+      this.emote(mid(), this.headY(player) - 6, 'heart');
+      // Sway gently together and let a few hearts drift up.
+      const start = this.time;
+      let beat = 0;
+      const ev = s.time.addEvent({
+        delay: 700, loop: true, callback: () => {
+          beat++;
+          if (!reduced) { const k = beat % 2 ? 1 : -1; mp.tiltT = towards * (0.04 + 0.015 * k); mq.tiltT = -towards * (0.055 - 0.015 * k); }
+          if (beat % 2 === 0) this.emote(mid() + (Math.random() - 0.5) * 30, this.headY(player) - 4, 'heart');
+          if (beat === 3 && !reduced) this.h.burst(mid(), this.headY(player) + 30, 'p-heart', 6);
+        },
+      });
+      await wait(minMs);
+      // Keep holding while the hug's conversation is still on screen.
+      while (store.blocked && this.time - start < 14 && !this.dead) await wait(200);
+      ev.remove();
+      if (this.dead) return;
+      // Let go: a happy little bounce, then back to walking.
+      this.h.setStyle(player, null);
+      this.h.setStyle(partner, null);
+      mp.tiltT = 0; mq.tiltT = 0;
+      this.bounce(player, 0.9); this.bounce(partner, 0.6);
+      this.say(partner, pick(['♡', 'Better?', 'Mm. Needed that.', 'One more later?']), 1800);
+    } finally {
+      this.held.delete(player);
+      this.held.delete(partner);
+      if (!this.dead) { this.h.setStyle(player, null); this.h.setStyle(partner, null); }
+      this.active = false;
+    }
+  }
+
   // ---------------------------------------------------------------- idle & ambient
   private idleMoment() {
     const player = this.h.player(), partner = this.h.partner()!;
@@ -489,9 +569,8 @@ export class CoupleDirector {
         this.h.scene.time.delayedCall(800, () => this.tilt(partner, -0.07, 700));
       },
       () => { // hold hands
-        close(46, 3600);
+        this.h.holdHandsFor(5200);
         this.h.scene.time.delayedCall(1000, () => {
-          this.faceEachOther();
           this.bounce(player, 0.6); this.bounce(partner, 0.6);
           this.emote((player.x + partner.x) / 2, player.y - FRAME_H * Math.abs(player.scaleY) * 0.45, 'heart');
           this.say(player, pick(['Hehe.', '♡', 'Your hand is warm.']));
