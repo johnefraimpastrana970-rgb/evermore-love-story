@@ -29,6 +29,8 @@ import { PetWorld } from '../pets/world';
 import { openPetCard } from '../pets/card';
 import { collectGift } from '../pets/pets';
 import { openCare } from '../pets/care';
+import { HomeItems } from '../home/world';
+import { move as homeMove } from '../home/logic';
 
 /** A hotspot's on-screen name (the backyard flower bed becomes our garden at level 5). */
 const hotspotLabel = (h: Hotspot) => {
@@ -88,6 +90,9 @@ export class WorldScene extends Phaser.Scene {
   private styles = new Map<Phaser.GameObjects.Sprite, CoupleStyle | null>();
   /** Cats and dogs in this room. */
   private pets?: PetWorld;
+  /** Furniture she placed in this room. */
+  private items?: HomeItems;
+  private bgImg?: Phaser.GameObjects.Image;
   /** Hold hands until this time (an idle moment), even with the 🤝 button off. */
   private tempHoldUntil = 0;
 
@@ -220,8 +225,12 @@ export class WorldScene extends Phaser.Scene {
       holdHandsFor: (ms) => { this.tempHoldUntil = this.time.now + ms; },
     });
     this.couple.buildProps();
+    this.items = new HomeItems(this, this.loc);
+    this.items.onSelect = (id) => bus.emit('home:select', id);
+    this.items.build();
     this.pets = new PetWorld({
       scene: this, loc: this.loc, player: () => this.player,
+      spots: () => this.items?.spots() ?? [],
       onTap: (pet) => void openPetCard(pet, {
         react: (p, anim, ms, line) => this.pets?.react(p, anim, ms, line),
         care: (p) => void openCare(p),
@@ -261,6 +270,31 @@ export class WorldScene extends Phaser.Scene {
     on('reload-world', () => void this.travel(store.state.location));
     // "Hug" in the talk menu (and the long hug when she needs one) plays a real hug in the world.
     on('dialogue:node', (id: string) => { if (id === '__hug' || id === 'feel-hug') void this.couple.hug(id === 'feel-hug' ? 6000 : 2800); });
+    // Decorating: repaint the room, (re)place items, let her pan around while the sheet is open.
+    on('home:changed', () => this.refreshRoom());
+    on('home:items', (e?: { placed?: { id: string; y: number } }) => {
+      const cam = this.cameras.main;
+      if (e?.placed) {
+        // A free spot in view: not behind the two of them, not on top of another item.
+        const cx = cam.scrollX + cam.width / 2;
+        const taken = [this.player.x, this.him?.x ?? -999, ...store.state.home.items.filter((i) => i.room === this.loc.id && i.id !== e.placed!.id).map((i) => i.x)];
+        const offsets = [0, 180, -180, 340, -340, 480, -480];
+        const x = offsets.map((o) => Phaser.Math.Clamp(cx + o, 80, this.loc.width - 80)).find((x2) => taken.every((t) => Math.abs(t - x2) > 110)) ?? cx;
+        homeMove(store.state.home, e.placed.id, x, e.placed.y);
+        store.save();
+      }
+      this.items?.build();
+      if (e?.placed) { const p = store.state.home.items.find((i) => i.id === e.placed!.id); if (p) { this.items?.select(p.id); this.pets?.investigate(p.x, p.y); } }
+    });
+    on('home:edit', (editing: boolean) => {
+      this.items?.setEdit(editing);
+      if (!editing) this.cameras.main.startFollow(this.player, true, 0.09, 0.09, 0, 120);
+    });
+    on('home:pan', (dir: number) => {
+      const cam = this.cameras.main;
+      cam.stopFollow();
+      this.tweens.add({ targets: cam, scrollX: Phaser.Math.Clamp(cam.scrollX + dir * cam.width * 0.6, 0, Math.max(0, this.loc.width - cam.width)), duration: 400, ease: 'Sine.easeInOut' });
+    });
     on('pets:changed', () => this.pets?.rebuild());
     on('pets:gifts', () => this.pets?.syncGifts());
     on('work:leave', () => this.partnerLeaves());
@@ -269,7 +303,7 @@ export class WorldScene extends Phaser.Scene {
       if (!this.him) return;
       if (holding) { this.couple.emoteAt(this.player, this.him); this.mo(this.him).sqV -= 0.6; }
     });
-    this.events.once('shutdown', () => { this.unsub.forEach((u) => u()); this.couple.destroy(); this.pets?.destroy(); this.pets = undefined; setPrompt(null); });
+    this.events.once('shutdown', () => { this.unsub.forEach((u) => u()); this.couple.destroy(); this.pets?.destroy(); this.pets = undefined; this.items?.destroy(); this.items = undefined; this.bgImg = undefined; setPrompt(null); });
 
     this.time_events();
     showHud(true);
@@ -307,9 +341,19 @@ export class WorldScene extends Phaser.Scene {
     if (this.textures.exists(art)) {
       this.add.image(0, 0, art).setOrigin(0).setDisplaySize(loc.width, 720).setDepth(-10);
     } else {
-      this.add.image(0, 0, tex.bg).setOrigin(0).setDepth(-10);
+      this.bgImg = this.add.image(0, 0, tex.bg).setOrigin(0).setDepth(-10);
     }
     if (tex.fg) this.add.image(0, 0, tex.fg).setOrigin(0).setDepth(5000);
+  }
+
+  /** Repaint the room after decorating (and free the old painting: these are big textures). */
+  private refreshRoom() {
+    if (!this.bgImg) return;
+    const old = this.bgImg.texture.key;
+    const tex = ensureRoom(this, this.loc, this.tod);
+    if (tex.bg === old) return;
+    this.bgImg.setTexture(tex.bg);
+    if (this.textures.exists(old)) this.textures.remove(old);
   }
 
   private buildHotspots() {

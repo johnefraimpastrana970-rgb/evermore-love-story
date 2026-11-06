@@ -4,6 +4,8 @@ import { store } from '../core/store';
 import { bus } from '../core/events';
 import { audio } from '../audio/audio';
 import { COUPLE, FRAME_H } from '../art/characters';
+import { shade } from '../art/paint';
+import { resolveLook } from '../home/logic';
 import { setPrompt } from '../ui/hud';
 
 /*
@@ -53,11 +55,13 @@ const SEATS: Record<string, SeatSpec> = {
   'living-sofa': {
     seats: [[650, 440], [770, 440]], scale: 0.74,
     front: (g) => {
-      g.fillStyle(0x9fb7e0, 1);
+      // Same colour as the painted sofa (it can be recoloured when decorating).
+      const sofa = (store.hasGame ? resolveLook(store.state.home, 'livingroom').sofa : undefined) ?? 0x8aa6d6;
+      g.fillStyle(shade(sofa, 0.15), 1);
       for (const cx of [580, 700, 820]) g.fillRoundedRect(cx - 54, 420, 108, 26, 10);
-      g.fillGradientStyle(0x93aedb, 0x93aedb, 0x7189b4, 0x7189b4, 1);
+      g.fillGradientStyle(shade(sofa, 0.05), shade(sofa, 0.05), shade(sofa, -0.18), shade(sofa, -0.18), 1);
       g.fillRoundedRect(510, 438, 400, 47, 14);
-      g.fillStyle(0x839ecb, 1);
+      g.fillStyle(shade(sofa, -0.05), 1);
       g.fillRoundedRect(498, 390, 44, 100, 18);
       g.fillRoundedRect(878, 390, 44, 100, 18);
     },

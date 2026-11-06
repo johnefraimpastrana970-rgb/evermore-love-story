@@ -3,7 +3,9 @@ import type { LocationDef } from '../content/types';
 import { store } from '../core/store';
 import { audio } from '../audio/audio';
 import { PERSONALITIES, PET_GIFTS, PET_LINES, breed, type BreedDef } from './data';
-import { mood, roomOf, type Pet } from './logic';
+import { mood, roomOf, speciesOf, type Pet } from './logic';
+import type { ItemSpot } from '../home/world';
+import type { ItemUse } from '../home/data';
 import { PET_FRAMES, PET_H, PET_W, buildPetSheet } from './draw';
 
 /*
@@ -48,6 +50,12 @@ interface Actor {
   /** Held in place by a card / an action. */
   hold: number;
   zzz?: Phaser.GameObjects.Text;
+  /** Floor position (y), where it's heading on the floor, and how high it's perched (cat tree). */
+  fy: number;
+  ty: number | null;
+  lift: number;
+  /** What it's walking to: a bed, a perch, a toy, or something new to sniff. */
+  goal: ItemUse | 'sniff' | null;
 }
 
 export interface PetWorldHost {
@@ -57,10 +65,13 @@ export interface PetWorldHost {
   /** Tapped a pet (null = the stray). */
   onTap(pet: Pet | null): void;
   onGift(id: string): void;
+  /** Beds, perches and toys placed in this room. */
+  spots?(): ItemSpot[];
 }
 
 const SPEED = 70;
 const rnd = (a: number, b: number) => a + Math.random() * (b - a);
+const pick = <T,>(arr: T[]) => arr[Math.floor(Math.random() * arr.length)];
 
 export class PetWorld {
   private actors: Actor[] = [];
@@ -90,7 +101,7 @@ export class PetWorld {
       audio.unlock();
       this.h.onTap(pet);
     });
-    const a: Actor = { pet, breed: b, key, spr, shadow, state: 'idle', timer: rnd(0.5, 3), target: null, face: Math.random() < 0.5 ? -1 : 1, greeted: false, hold: 0 };
+    const a: Actor = { pet, breed: b, key, spr, shadow, state: 'idle', timer: rnd(0.5, 3), target: null, face: Math.random() < 0.5 ? -1 : 1, greeted: false, hold: 0, fy: py, ty: null, lift: 0, goal: null };
     // Napping pets start asleep, the stray sits and watches.
     if (!pet) this.play(a, 'sit');
     else if (Math.random() < PERSONALITIES[pet.personality].sleepy * 0.6) this.play(a, 'sleep');
@@ -132,12 +143,48 @@ export class PetWorld {
   sprite(pet: Pet | null) { return this.actors.find((x) => x.pet === pet || (pet && x.pet?.id === pet.id))?.spr; }
   get count() { return this.actors.length; }
 
+  /** Something new was placed: curious and playful pets come to sniff it. */
+  investigate(x: number, y: number) {
+    for (const a of this.actors) {
+      if (!a.pet || !['curious', 'playful', 'cuddly'].includes(a.pet.personality) || a.hold > 0) continue;
+      this.leavePerch(a);
+      a.target = x + (a.spr.x < x ? -60 : 60);
+      a.ty = Phaser.Math.Clamp(y + 6, this.h.loc.floorTop, this.h.loc.floorBottom);
+      a.goal = 'sniff';
+      this.play(a, 'walk');
+    }
+  }
+
+  /** Jump down from the cat tree before doing anything else. */
+  private leavePerch(a: Actor) {
+    if (a.lift <= 0) return;
+    this.h.scene.tweens.add({ targets: a, lift: 0, duration: 380, ease: 'Quad.easeIn' });
+  }
+
+  /** Arrived where it was going: nap in the bed, climb the tree, play, sniff. */
+  private arrive(a: Actor) {
+    const goal = a.goal;
+    a.goal = null;
+    a.ty = null;
+    const spot = (this.h.spots?.() ?? []).reduce<ItemSpot | null>((best, s) => (!best || Math.abs(s.x - a.spr.x) < Math.abs(best.x - a.spr.x) ? s : best), null);
+    if (goal === 'bed' && spot) { this.play(a, 'sleep'); a.timer = rnd(14, 26); return; }
+    if (goal === 'perch' && spot?.perchY) {
+      this.h.scene.tweens.add({ targets: a, lift: spot.perchY * spot.scale, duration: 520, ease: 'Back.easeOut' });
+      audio.sfx('plop');
+      this.play(a, 'sit'); a.timer = rnd(8, 16); return;
+    }
+    if (goal === 'toy') { this.play(a, 'happy'); this.bubble(a, pick(['🎾', '♪', '!'])); a.timer = rnd(3, 6); return; }
+    if (goal === 'sniff') { this.bubble(a, pick(['?', '!', '👃', '♡'])); this.play(a, 'sit'); a.timer = rnd(3, 6); return; }
+    this.play(a, Math.random() < 0.4 ? 'sit' : 'idle');
+    a.timer = rnd(2, 5);
+  }
+
   update(dt: number) {
     const loc = this.h.loc;
     const pl = this.h.player();
     for (const a of this.actors) {
       const pers = a.pet ? PERSONALITIES[a.pet.personality] : PERSONALITIES.shy;
-      const near = Math.abs(pl.x - a.spr.x) < 140 && Math.abs(pl.y - a.spr.y) < 80;
+      const near = Math.abs(pl.x - a.spr.x) < 140 && Math.abs(pl.y - a.fy) < 80;
       if (a.hold > 0) a.hold -= dt;
       else {
         // Say hi once when she comes close (unless asleep; shy pets and the stray are more careful).
@@ -151,16 +198,35 @@ export class PetWorld {
         a.timer -= dt;
         if (a.target !== null) {
           const dx = a.target - a.spr.x;
-          if (Math.abs(dx) < 4) { a.target = null; this.play(a, Math.random() < 0.4 ? 'sit' : 'idle'); a.timer = rnd(2, 5); }
-          else { a.face = Math.sign(dx); a.spr.x += Math.sign(dx) * Math.min(Math.abs(dx), SPEED * (a.pet?.personality === 'playful' ? 1.5 : 1) * dt); }
+          const sp = SPEED * (a.pet?.personality === 'playful' ? 1.5 : 1) * dt;
+          if (a.ty !== null) a.fy += Phaser.Math.Clamp(a.ty - a.fy, -sp * 0.6, sp * 0.6);
+          if (Math.abs(dx) < 4 && (a.ty === null || Math.abs(a.ty - a.fy) < 3)) { a.target = null; this.arrive(a); }
+          else if (Math.abs(dx) >= 4) { a.face = Math.sign(dx); a.spr.x += Math.sign(dx) * Math.min(Math.abs(dx), sp); }
         } else if (a.timer <= 0 && a.pet) {
-          // Decide what to do next.
+          // Decide what to do next (furniture first: a bed to nap in, a cat tree to climb, toys to play with).
           const r = Math.random();
+          const spots = this.h.spots?.() ?? [];
+          const beds = spots.filter((s) => s.use === 'bed');
+          const perches = speciesOf(a.pet) === 'cat' ? spots.filter((s) => s.use === 'perch') : [];
+          const toys = spots.filter((s) => s.use === 'toy');
+          const go = (s: ItemSpot, goal: ItemUse, dy = 0) => {
+            this.leavePerch(a);
+            a.target = Phaser.Math.Clamp(s.x, 60, loc.width - 60);
+            a.ty = Phaser.Math.Clamp(s.y + dy, loc.floorTop, loc.floorBottom);
+            a.goal = goal;
+            this.play(a, 'walk');
+          };
           const follows = !pl.anims.isPlaying || pl.anims.currentAnim?.key.endsWith('-idle');
-          if (follows && r < pers.follow * 0.5 && Math.abs(pl.x - a.spr.x) > 90) {
+          if (a.lift > 0 && r < 0.5) { this.leavePerch(a); this.play(a, 'idle'); a.timer = rnd(1, 2); }
+          else if (beds.length && r < pers.sleepy * 0.55) go(pick(beds), 'bed', 2);
+          else if (perches.length && r < 0.25 + (a.pet.personality === 'curious' || a.pet.personality === 'playful' ? 0.15 : 0)) go(pick(perches), 'perch', 3);
+          else if (toys.length && r < 0.3 && (a.pet.personality === 'playful' || a.pet.personality === 'curious')) go(pick(toys), 'toy', 10);
+          else if (follows && r < pers.follow * 0.5 && Math.abs(pl.x - a.spr.x) > 90) {
+            this.leavePerch(a);
             a.target = Phaser.Math.Clamp(pl.x + (a.spr.x < pl.x ? -70 : 70), 60, loc.width - 60);
             this.play(a, 'walk');
           } else if (r < pers.follow * 0.5 + pers.wander * 0.5) {
+            this.leavePerch(a);
             a.target = Phaser.Math.Clamp(a.spr.x + rnd(-320, 320), 80, loc.width - 80);
             this.play(a, 'walk');
           } else if (r < 0.85 && Math.random() < pers.sleepy) { this.play(a, 'sleep'); a.timer = rnd(10, 22); }
@@ -168,11 +234,12 @@ export class PetWorld {
           if (a.state !== 'sleep') a.timer = Math.max(a.timer, rnd(2.5, 6));
         }
       }
-      // Present: depth scale, facing, shadow, z's.
-      const t = (a.spr.y - loc.floorTop) / (loc.floorBottom - loc.floorTop);
+      // Present: depth scale, facing, shadow (stays on the floor when perched), z's.
+      const t = (a.fy - loc.floorTop) / (loc.floorBottom - loc.floorTop);
       const sc = (0.66 + 0.16 * t);
-      a.spr.setScale(sc * a.face, sc).setDepth(a.spr.y);
-      a.shadow.setPosition(a.spr.x, a.spr.y - 2).setDepth(a.spr.y - 1).setScale(0.42 * sc * a.breed.size, 0.5 * sc);
+      a.spr.y = a.fy - a.lift;
+      a.spr.setScale(sc * a.face, sc).setDepth(a.fy + (a.lift > 0 ? 4 : 0));
+      a.shadow.setPosition(a.spr.x, a.fy - 2).setDepth(a.fy - 1).setScale(0.42 * sc * a.breed.size, 0.5 * sc).setAlpha(a.lift > 0 ? 0.25 : 0.7);
       if (a.zzz) a.zzz.setPosition(a.spr.x + 16 * a.face, a.spr.y - 50 - Math.sin(this.h.scene.time.now / 500) * 6).setDepth(9300).setAlpha(0.6 + 0.4 * Math.sin(this.h.scene.time.now / 400));
     }
   }

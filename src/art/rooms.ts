@@ -2,7 +2,7 @@ import type { LocationId, TimeOfDay } from '../content/types';
 import {
   Ctx, hex, shade, rr, fillRR, vgrad, glow, ellipse, floorShadow, heartPath, starPath,
   drawSky, drawWall, drawFloor, drawWindow, drawPlant, drawBooks, drawFrame, paintLandscape,
-  drawDoor, drawRug, drawStringLights,
+  drawDoor, drawRug, drawStringLights, type WallStyle,
 } from './paint';
 import { rng } from '../core/rng';
 
@@ -12,6 +12,11 @@ import { rng } from '../core/rng';
  * Replace any room with illustrated art by setting backgroundImage in content/locations.ts.
  */
 export const FLOOR_Y = 500;
+
+/** How a decorated room looks (set before painting it; missing parts use the original look). */
+export interface PaintLook { wall?: WallStyle; floor?: { kind: 'wood' | 'tile' | 'carpet'; color: number }; sofa?: number; blanket?: number; curtain?: number; rug?: number }
+let LOOK: PaintLook = {};
+export function setPaintLook(look: PaintLook) { LOOK = look; }
 
 export interface RoomPainter {
   bg: (ctx: Ctx, time: TimeOfDay, w: number) => void;
@@ -63,12 +68,12 @@ function polaroid(ctx: Ctx, x: number, y: number, rot: number, seed: string) {
 // ====================================================================== BEDROOM
 const bedroom: RoomPainter = {
   bg(ctx, time, w) {
-    drawWall(ctx, w, FLOOR_Y, { base: 0xfbe4e8, accent: 0xe79cb0, pattern: 'dots', wainscot: 0xf9eef0 });
-    drawFloor(ctx, w, FLOOR_Y, 720 - FLOOR_Y, 'wood', 0xc99c78);
-    drawRug(ctx, 760, 620, 300, 58, 0xf3b7c6, 0xffffff);
+    drawWall(ctx, w, FLOOR_Y, LOOK.wall ?? { base: 0xfbe4e8, accent: 0xe79cb0, pattern: 'dots', wainscot: 0xf9eef0 });
+    drawFloor(ctx, w, FLOOR_Y, 720 - FLOOR_Y, LOOK.floor?.kind ?? 'wood', LOOK.floor?.color ?? 0xc99c78);
+    drawRug(ctx, 760, 620, 300, 58, LOOK.rug ?? 0xf3b7c6, 0xffffff);
 
     drawDoor(ctx, 40, 170, 120, 330, 0xf3e3d3);
-    drawWindow(ctx, 210, 120, 220, 210, time, { curtain: 0xf4a6b8, seed: 'bedwin' });
+    drawWindow(ctx, 210, 120, 220, 210, time, { curtain: LOOK.curtain ?? 0xf4a6b8, seed: 'bedwin' });
 
     // Memory board with string lights above the bed.
     drawStringLights(ctx, 540, 840, 140, 14, evening(time), 'bedlights');
@@ -99,7 +104,7 @@ const bedroom: RoomPainter = {
     ctx.lineTo(875, 470);
     ctx.quadraticCurveTo(760, 478, 640, 466);
     ctx.closePath();
-    ctx.fillStyle = vgrad(ctx, 390, 475, [[0, 0xc9b2ec], [1, 0x9f84d0]]);
+    ctx.fillStyle = vgrad(ctx, 390, 475, LOOK.blanket !== undefined ? [[0, shade(LOOK.blanket, 0.1)], [1, shade(LOOK.blanket, -0.14)]] : [[0, 0xc9b2ec], [1, 0x9f84d0]]);
     ctx.fill();
     ctx.strokeStyle = 'rgba(255,255,255,0.35)';
     ctx.lineWidth = 2;
@@ -170,9 +175,9 @@ const bedroom: RoomPainter = {
 // ====================================================================== LIVING ROOM
 const livingroom: RoomPainter = {
   bg(ctx, time, w) {
-    drawWall(ctx, w, FLOOR_Y, { base: 0xf7ecdc, accent: 0xe2c7a0, pattern: 'stripes' });
-    drawFloor(ctx, w, FLOOR_Y, 720 - FLOOR_Y, 'wood', 0xb3825e);
-    drawRug(ctx, 760, 620, 380, 66, 0xa9c3e6, 0xfff6e8);
+    drawWall(ctx, w, FLOOR_Y, LOOK.wall ?? { base: 0xf7ecdc, accent: 0xe2c7a0, pattern: 'stripes' });
+    drawFloor(ctx, w, FLOOR_Y, 720 - FLOOR_Y, LOOK.floor?.kind ?? 'wood', LOOK.floor?.color ?? 0xb3825e);
+    drawRug(ctx, 760, 620, 380, 66, LOOK.rug ?? 0xa9c3e6, 0xfff6e8);
     drawRug(ctx, 1880, 560, 90, 16, 0xc88a5a, 0xfff6e8);
 
     drawDoor(ctx, 40, 170, 120, 330, 0xe8d4bc);
@@ -195,7 +200,7 @@ const livingroom: RoomPainter = {
     drawFrame(ctx, 590, 140, 240, 170, 0xe8c070, (c, x, y, ww, hh) => paintLandscape(c, x, y, ww, hh, 'bigframe'));
     // Sofa
     floorShadow(ctx, 710, 500, 470, 0.32);
-    const sofa = 0x8aa6d6;
+    const sofa = LOOK.sofa ?? 0x8aa6d6;
     fillRR(ctx, 520, 350, 380, 90, 22, vgrad(ctx, 350, 440, [[0, shade(sofa, 0.12)], [1, shade(sofa, -0.05)]]));
     fillRR(ctx, 510, 425, 400, 60, 14, vgrad(ctx, 425, 485, [[0, shade(sofa, 0.05)], [1, shade(sofa, -0.18)]]));
     fillRR(ctx, 498, 390, 44, 100, 18, hex(shade(sofa, -0.05)));
@@ -228,7 +233,7 @@ const livingroom: RoomPainter = {
     drawPlant(ctx, 1210, 430, 0.45, 0x8ab0d8);
 
     // Window with plant
-    drawWindow(ctx, 1300, 130, 190, 210, time, { curtain: 0xe8c890, seed: 'lrwin', cols: 2, rows: 3 });
+    drawWindow(ctx, 1300, 130, 190, 210, time, { curtain: LOOK.curtain ?? 0xe8c890, seed: 'lrwin', cols: 2, rows: 3 });
     drawPlant(ctx, 1395, 342, 0.5, 0xd98c6a);
     // Calendar
     ctx.fillStyle = 'rgba(60,30,40,0.15)'; ctx.fillRect(1518, 200, 70, 100);
@@ -250,7 +255,7 @@ const livingroom: RoomPainter = {
 // ====================================================================== KITCHEN
 const kitchen: RoomPainter = {
   bg(ctx, time, w) {
-    drawWall(ctx, w, FLOOR_Y, { base: 0xfff4e2, accent: 0xf2cfa0, pattern: 'plain' });
+    drawWall(ctx, w, FLOOR_Y, LOOK.wall ?? { base: 0xfff4e2, accent: 0xf2cfa0, pattern: 'plain' });
     // backsplash tiles
     ctx.save();
     ctx.fillStyle = '#dff1ec';
@@ -259,7 +264,7 @@ const kitchen: RoomPainter = {
     for (let y = 270; y < 400; y += 26) { ctx.beginPath(); ctx.moveTo(400, y); ctx.lineTo(1160, y); ctx.stroke(); }
     for (let y = 270, row = 0; y < 400; y += 26, row++) for (let x = 400 + (row % 2) * 20; x < 1160; x += 40) { ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x, y + 26); ctx.stroke(); }
     ctx.restore();
-    drawFloor(ctx, w, FLOOR_Y, 720 - FLOOR_Y, 'tile', 0xe6d6c2);
+    drawFloor(ctx, w, FLOOR_Y, 720 - FLOOR_Y, LOOK.floor?.kind ?? 'tile', LOOK.floor?.color ?? 0xe6d6c2);
 
     drawDoor(ctx, 40, 170, 150, 330, 0, { arch: true });
     // Fridge

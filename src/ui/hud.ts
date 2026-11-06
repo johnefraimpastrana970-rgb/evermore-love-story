@@ -13,10 +13,13 @@ import { openPhone, unreadCount } from '../phone/phone';
 import { PHONE_GLYPH } from '../phone/icons';
 import { setHoldingHands, toggleHands } from '../systems/hands';
 import { partnerAway } from '../work/work';
+import { openDecorate } from '../home/decorate';
+import { isHouseRoom } from '../home/data';
 
 let hud: HTMLElement;
 let promptEl: HTMLElement;
 let handsEl: HTMLElement;
+let decorEl: HTMLElement;
 
 const HEART_PATH = 'M50 88 C20 68 6 50 6 32 C6 18 17 8 30 8 C39 8 46 13 50 21 C54 13 61 8 70 8 C83 8 94 18 94 32 C94 50 80 68 50 88 Z';
 
@@ -69,6 +72,10 @@ export function initHud() {
     handsEl.querySelector('small')!.textContent = on ? 'Let go' : 'Hold hands';
     audio.sfx(on ? 'heart' : 'click');
   });
+  // Decorate (inside the house).
+  decorEl = el('button', `hud-decor ${isTouch() ? 'touch' : ''}`, '<span>🎨</span><small>Decorate</small>');
+  hud.appendChild(decorEl);
+  decorEl.addEventListener('click', () => { audio.unlock(); if (!store.blocked) void openDecorate(); });
   bus.on('settings', render);
   bus.on('work:leave', render);
   bus.on('work:home', render);
@@ -136,6 +143,7 @@ function render() {
   bumpIfChanged(tok, String(s.tokens));
   bumpIfChanged(lvl, String(s.level));
   hud.querySelector('.hud-time')!.textContent = TIME_LABEL[store.timeOfDay()];
+  decorEl.classList.toggle('hidden', !isHouseRoom(s.location));
   const follows = store.settings.companionMode === 'follow' && !partnerAway();
   handsEl.classList.toggle('hidden', !follows);
   if (!follows) setHoldingHands(false);

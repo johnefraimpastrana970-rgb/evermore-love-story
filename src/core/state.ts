@@ -4,8 +4,9 @@ import { defaultPizza, repairPizza, UNLOCK_LEVEL as PIZZA_UNLOCK, type PizzaStat
 import { defaultGarden, repairGarden, type GardenState } from '../garden/logic';
 import { defaultWork, repairWork, type WorkState } from '../work/logic';
 import { defaultPets, repairPets, type PetsState } from '../pets/logic';
+import { defaultHome, repairHome, type HomeState } from '../home/logic';
 
-export const SAVE_VERSION = 10;
+export const SAVE_VERSION = 11;
 
 /** His real look (from his character art) + the older defaults. */
 export const HIS_DEFAULT_OWNED = ['his-hair-black', 'his-outfit-raglan', 'his-hair-ink', 'his-outfit-navy'];
@@ -89,6 +90,8 @@ export interface GameState {
   work: WorkState;
   /** Cats and dogs living with them, their food, the visiting stray, gifts they left. */
   pets: PetsState;
+  /** How the house is decorated: wallpaper, floors, furniture colours, placed items. */
+  home: HomeState;
 }
 
 export function defaultSettings(): Settings {
@@ -154,6 +157,7 @@ export function defaultState(herName = '', hisName = '', playAs: 'her' | 'him' =
     garden: defaultGarden(),
     work: defaultWork(),
     pets: defaultPets(),
+    home: defaultHome(),
   };
 }
 
@@ -212,6 +216,8 @@ export function migrate(raw: unknown): GameState {
   repairWork(s.work);
   // v9 -> v10: pets.
   repairPets(s.pets);
+  // v10 -> v11: decorating.
+  repairHome(s.home);
   if (s.profile.playAs !== 'him') s.profile.playAs = 'her'; // older saves: she was always the player
   if (!Number.isFinite(s.level) || s.level < 1) s.level = 1;
   if (!Number.isFinite(s.xp) || s.xp < 0) s.xp = 0;

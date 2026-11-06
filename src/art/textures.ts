@@ -1,6 +1,8 @@
 import Phaser from 'phaser';
 import type { LocationDef, TimeOfDay } from '../content/types';
-import { ROOMS } from './rooms';
+import { ROOMS, setPaintLook } from './rooms';
+import { isHouseRoom, type HouseRoom } from '../home/data';
+import { lookKey, resolveLook } from '../home/logic';
 import { buildCoupleSheet, buildSpriteSheet, COUPLE_COLS, COUPLE_FRAMES, COUPLE_W, FRAME_H, FRAME_W, FRAMES, Look } from './characters';
 import { drawIcon } from './icons';
 import { ellipse, glow, heartPath, makeCanvas, starPath, vgrad, hex, shade, drawStringLights } from './paint';
@@ -68,6 +70,12 @@ export function ensureCouple(scene: Phaser.Scene, key: string, look: Look) {
   scene.anims.create({ key: `${key}-hug`, frames: f(COUPLE_FRAMES.hug), frameRate: 2.2, repeat: -1, yoyo: true });
 }
 
+function hashKey(s: string) {
+  let h = 2166136261;
+  for (let i = 0; i < s.length; i++) h = Math.imul(h ^ s.charCodeAt(i), 16777619);
+  return (h >>> 0).toString(36);
+}
+
 function addCanvas(scene: Phaser.Scene, key: string, canvas: HTMLCanvasElement) {
   if (scene.textures.exists(key)) scene.textures.remove(key);
   scene.textures.addCanvas(key, canvas);
@@ -77,7 +85,11 @@ export interface RoomTextures { bg: string; sky?: string; far?: string; fg?: str
 
 export function ensureRoom(scene: Phaser.Scene, loc: LocationDef, time: TimeOfDay): RoomTextures {
   const p = ROOMS[loc.id];
-  const base = `room-${loc.id}-${time}`;
+  // Decorated rooms are painted with their own look (and cached under a key for that look).
+  const house = store.hasGame && isHouseRoom(loc.id);
+  setPaintLook(house ? resolveLook(store.state.home, loc.id as HouseRoom) : {});
+  const lk = house ? lookKey(store.state.home, loc.id as HouseRoom) : '';
+  const base = `room-${loc.id}-${time}${lk ? `-${hashKey(lk)}` : ''}`;
   const out: RoomTextures = { bg: base };
   if (!scene.textures.exists(base)) {
     const [c, ctx] = makeCanvas(loc.width, 720);

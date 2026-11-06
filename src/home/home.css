@@ -1,0 +1,52 @@
+/* ------------------------------------------------------------------ Decorating sheet (the room stays visible above it) */
+.hm-layer { position: absolute; inset: 0; z-index: 57; pointer-events: none; }
+.hm-sheet { position: absolute; left: 50%; bottom: 0; width: min(1080px, 100%); max-height: 46%; display: flex; flex-direction: column; pointer-events: auto;
+  background: rgba(255, 250, 246, .97); border-radius: 24px 24px 0 0; box-shadow: 0 -10px 40px rgba(40, 10, 40, .25); padding: 10px 16px calc(10px + var(--safe-b));
+  transform: translate(-50%, 100%); transition: transform .35s cubic-bezier(.2, 1.1, .35, 1); }
+.hm-layer.in .hm-sheet { transform: translate(-50%, 0); }
+.hm-sheet header { display: flex; align-items: center; gap: 10px; }
+.hm-sheet h3 { margin: 0; font-size: 18px; flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.hm-pan { display: flex; gap: 4px; }
+.hm-pan button { width: 34px; height: 34px; border-radius: 50%; border: 0; background: #f4e8ee; color: var(--rose-deep); font-size: 14px; cursor: pointer; }
+.hm-tok .pz-coins img { width: 18px; height: 18px; }
+.hm-tabs { display: flex; gap: 6px; margin: 8px 0; flex-wrap: wrap; }
+.hm-tabs button { font: inherit; font-size: 13px; font-weight: 600; padding: 6px 12px; border-radius: 999px; border: 0; background: #fff; color: var(--ink-soft); box-shadow: inset 0 0 0 1.5px #f4dce4; cursor: pointer; }
+.hm-tabs button.on { background: #e8577d; color: #fff; box-shadow: none; }
+.hm-body { flex: 1; min-height: 0; overflow: auto; }
+.hm-row { display: flex; gap: 10px; overflow-x: auto; padding: 4px 2px 8px; }
+.hm-card { flex: none; width: 112px; display: flex; flex-direction: column; align-items: center; gap: 3px; padding: 8px 6px; border-radius: 18px; border: 2px solid transparent;
+  background: #fff; box-shadow: 0 3px 10px rgba(120, 60, 80, .1); font: inherit; color: var(--ink); cursor: pointer; text-align: center; }
+.hm-card.cur { border-color: #e8577d; }
+.hm-card.item { width: 128px; cursor: default; }
+.hm-card b { font-size: 12px; }
+.hm-card small { font-size: 11px; color: var(--ink-soft); display: inline-flex; align-items: center; gap: 2px; }
+.hm-card small img, .hm-card .pz-btn img { width: 14px; height: 14px; vertical-align: -2px; }
+.hm-emoji { font-size: 34px; }
+.hm-sw { width: 84px; height: 54px; border-radius: 12px; box-shadow: inset 0 0 0 1px rgba(0, 0, 0, .08); }
+.hm-card img { width: 72px; height: 66px; object-fit: contain; }
+.hm-btns { display: flex; gap: 4px; flex-wrap: wrap; justify-content: center; }
+.hm-btns .pz-btn { padding: 4px 8px; font-size: 11px; }
+.hm-slot { display: flex; align-items: center; gap: 12px; margin: 6px 0; }
+.hm-slot > b { width: 90px; font-size: 13px; }
+.hm-chips { display: flex; gap: 6px; flex-wrap: wrap; }
+.hm-chip { width: 34px; height: 34px; border-radius: 50%; border: 2px solid rgba(0, 0, 0, .08); cursor: pointer; font-size: 12px; color: #fff; text-shadow: 0 1px 2px rgba(0, 0, 0, .4); }
+.hm-chip.cur { box-shadow: 0 0 0 3px #e8577d; }
+.hm-chip.buy { opacity: .75; }
+.hm-hint { margin: 2px 0 6px; font-size: 12px; color: var(--ink-soft); }
+.hm-selected { display: flex; align-items: center; gap: 10px; background: #fff1f6; border-radius: 16px; padding: 6px 10px; margin-bottom: 6px; }
+.hm-selected img { width: 48px; height: 44px; object-fit: contain; }
+.hm-selected span { flex: 1; display: flex; flex-direction: column; }
+.hm-selected small { color: var(--ink-soft); font-size: 11px; }
+.hud-decor { position: fixed; right: calc(24px + var(--safe-r)); bottom: calc(110px + var(--safe-b)); z-index: 5; display: flex; flex-direction: column; align-items: center;
+  width: 74px; padding: 8px 4px 6px; border: 0; border-radius: 22px; background: rgba(255, 250, 246, .92); box-shadow: var(--shadow); font: inherit; color: var(--ink-soft); cursor: pointer; pointer-events: auto; }
+.hud-decor span { font-size: 26px; line-height: 1; }
+.hud-decor small { font-size: 10px; font-weight: 600; margin-top: 2px; }
+.hud-decor.touch { right: calc(44px + var(--safe-r)); bottom: calc(226px + var(--safe-b)); width: 64px; }
+.hud-decor.hidden { display: none; }
+
+@media (max-height: 520px) {
+  .hm-sheet { max-height: 58%; padding-top: 6px; }
+  .hm-card { width: 96px; }
+  .hm-sw { height: 40px; }
+  .hm-card img { height: 48px; }
+}
