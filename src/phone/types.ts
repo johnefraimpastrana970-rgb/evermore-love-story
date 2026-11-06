@@ -59,7 +59,7 @@ export interface NotificationLog {
   body: string;
   /** When it was (or should have been) delivered. */
   at: number;
-  source: 'reminder' | 'greeting' | 'garden';
+  source: 'reminder' | 'greeting' | 'garden' | 'work';
   refId?: string;
   /** How it reached her: inside the game, a browser notification, or an Android notification. */
   channel: 'game' | 'browser' | 'android';

@@ -20,7 +20,7 @@ registerApp({
       ctx.host.innerHTML = h.length ? `<ul class="ph-list notif-list">${h.map((n) => {
         const d = dayLabel(n.at);
         const head = d !== day ? `<li class="ph-letter">${esc((day = d))}</li>` : '';
-        const icon = n.source === 'reminder' ? '🔔' : n.source === 'garden' ? '🌷' : '💌';
+        const icon = n.source === 'reminder' ? '🔔' : n.source === 'garden' ? '🌷' : n.source === 'work' ? '🍱' : '💌';
         const tags = [n.missed ? '<i class="tag miss">missed</i>' : '', n.opened ? '<i class="tag">opened</i>' : '', n.channel !== 'game' ? `<i class="tag">${n.channel}</i>` : ''].join('');
         return `${head}<li><button class="ph-row" data-src="${n.source}" data-ref="${esc(n.refId ?? '')}"><span class="notif-ico">${icon}</span>
           <span><b>${esc(n.title)}</b><small>${esc(n.body.split('\n')[0])}</small></span><span class="notif-meta"><small>${timeLabel(n.at)}</small>${tags}</span></button></li>`;

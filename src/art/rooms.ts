@@ -318,6 +318,19 @@ const kitchen: RoomPainter = {
     ctx.strokeStyle = '#a0a0a8'; ctx.lineWidth = 3;
     ctx.beginPath(); ctx.moveTo(552, 360); ctx.lineTo(546, 330); ctx.moveTo(560, 360); ctx.lineTo(562, 326); ctx.moveTo(566, 360); ctx.lineTo(576, 334); ctx.stroke();
 
+    // Lunch box on the counter, wrapped in a pink cloth with a knot on top (his bento).
+    floorShadow(ctx, 830, 399, 80, 0.18);
+    fillRR(ctx, 796, 366, 68, 32, 7, '#ff9ab8');
+    ctx.fillStyle = 'rgba(255,255,255,0.55)';
+    for (let i = 0; i < 4; i++) for (let j = 0; j < 2; j++) ellipse(ctx, 806 + i * 16 + j * 8, 374 + j * 12, 2.4, 2.4, 'rgba(255,255,255,0.7)');
+    ctx.fillStyle = '#ff7fa3';
+    ctx.beginPath(); ctx.moveTo(818, 368); ctx.quadraticCurveTo(808, 344, 826, 352); ctx.quadraticCurveTo(830, 360, 830, 368); ctx.closePath(); ctx.fill();
+    ctx.beginPath(); ctx.moveTo(842, 368); ctx.quadraticCurveTo(852, 344, 834, 352); ctx.quadraticCurveTo(830, 360, 830, 368); ctx.closePath(); ctx.fill();
+    ellipse(ctx, 830, 366, 6, 5, '#e8577d');
+    // chopsticks
+    ctx.strokeStyle = '#c08a5e'; ctx.lineWidth = 3; ctx.lineCap = 'round';
+    ctx.beginPath(); ctx.moveTo(872, 396); ctx.lineTo(884, 360); ctx.moveTo(878, 397); ctx.lineTo(892, 362); ctx.stroke();
+
     // Window & sink
     drawWindow(ctx, 900, 150, 200, 170, time, { seed: 'kwin', frame: 0xffffff, view: (c) => {
       c.fillStyle = time === 'night' ? '#1e3a30' : '#7cc08a';

@@ -151,6 +151,8 @@ export const LOCATIONS: Record<LocationId, LocationDef> = {
           text: 'Behind the crooked magnet is a sticky note folded into a tiny square. Someone wanted you to find this.' } },
       { id: 'kitchen-stove', label: 'Stove', x: 590, y: 300, w: 180, h: 200,
         action: { kind: 'minigame', id: 'cooking' } },
+      { id: 'kitchen-bento', label: 'Lunch Box', x: 785, y: 330, w: 110, h: 80,
+        action: { kind: 'inspect', texts: [{ text: 'A cute lunch box wrapped in a pink cloth. One day you’ll pack lunches for {him} in it ♡ (Level 2)' }] } },
       { id: 'kitchen-jar', label: 'Cookie Jar', x: 460, y: 330, w: 70, h: 80,
         action: { kind: 'inspect', onceFlag: 'cookiejar-{day}',
           texts: [{ text: 'The cookie jar is full today. You take one for later!' }],

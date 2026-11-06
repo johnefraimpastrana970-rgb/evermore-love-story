@@ -5,6 +5,7 @@ import { el, esc, uiRoot } from '../ui/dom';
 import { HER_PORTRAITS, HIS_PORTRAITS } from '../content/characters';
 import type { Mood } from '../content/types';
 import { CUSTOMERS, PARTNER_LINES, type CustomerDef } from './data';
+import { partnerAway } from '../work/work';
 
 /** A full-screen pizza layer (shop or market). Blocks the world while open. */
 export function overlay(cls: string): { root: HTMLElement; close: () => void } {
@@ -79,6 +80,8 @@ export class Helper {
     this.el = el('div', 'pz-helper', `<div class="pz-bubble hidden"></div><span class="pz-ava"><img alt=""><span class="apron-slot"></span></span><b>${esc(store.partnerName())}</b>`);
     host.appendChild(this.el);
     this.face('happy');
+    // At work: he isn't here to help (the shop and garden still work).
+    if (partnerAway()) this.el.style.display = 'none';
   }
   /** Show the apron the two of you are wearing. */
   apron(html: string) {

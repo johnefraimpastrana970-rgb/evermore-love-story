@@ -12,6 +12,7 @@ import { HER_AVATAR, HIS_AVATAR } from '../content/characters';
 import { openPhone, unreadCount } from '../phone/phone';
 import { PHONE_GLYPH } from '../phone/icons';
 import { setHoldingHands, toggleHands } from '../systems/hands';
+import { partnerAway } from '../work/work';
 
 let hud: HTMLElement;
 let promptEl: HTMLElement;
@@ -69,6 +70,8 @@ export function initHud() {
     audio.sfx(on ? 'heart' : 'click');
   });
   bus.on('settings', render);
+  bus.on('work:leave', render);
+  bus.on('work:home', render);
 
   hud.querySelectorAll<HTMLElement>('[data-panel]').forEach((b) =>
     b.addEventListener('click', () => { audio.unlock(); void openPanel(b.dataset.panel as PanelId); }));
@@ -133,7 +136,7 @@ function render() {
   bumpIfChanged(tok, String(s.tokens));
   bumpIfChanged(lvl, String(s.level));
   hud.querySelector('.hud-time')!.textContent = TIME_LABEL[store.timeOfDay()];
-  const follows = store.settings.companionMode === 'follow';
+  const follows = store.settings.companionMode === 'follow' && !partnerAway();
   handsEl.classList.toggle('hidden', !follows);
   if (!follows) setHoldingHands(false);
   const badge = hud.querySelector('[data-phone] .badge') as HTMLElement;

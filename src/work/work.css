@@ -1,0 +1,82 @@
+/* ------------------------------------------------------------------ Bento editor (reuses the pizza frame, buttons and tabs) */
+.bt-frame { background: #fff8f2; }
+.bt-top { background: linear-gradient(#ff9ab8, #e8577d); }
+.bt-top::after { background: repeating-linear-gradient(90deg, #fff 0 18px, #ffc2d4 18px 36px); }
+.bt-shifts { flex: 1; font-size: 13px; opacity: .9; }
+.bt-main { flex: 1; min-height: 0; display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 18px; padding: 22px 20px 16px; overflow: auto; }
+.bt-left, .bt-right { display: flex; flex-direction: column; gap: 12px; min-width: 0; }
+.bt-left { align-items: center; }
+.bt-craving { display: flex; gap: 10px; align-items: center; background: #fff; border-radius: 18px; padding: 8px 14px 8px 8px; box-shadow: 0 4px 12px rgba(120, 60, 80, .12); align-self: stretch; }
+.bt-craving img { width: 46px; height: 46px; border-radius: 50%; object-fit: cover; border: 3px solid #ffe1ea; }
+.bt-craving span { display: flex; flex-direction: column; font-size: 14px; }
+.bt-craving b { color: var(--rose-deep); font-size: 12px; }
+
+/* The box */
+.bento { position: relative; width: min(340px, 100%); aspect-ratio: 4 / 3; display: grid; gap: 7px; padding: 10px; border-radius: 22px;
+  grid-template-columns: 1.15fr 1fr 1fr; grid-template-rows: 1fr 1fr;
+  grid-template-areas: 'rice main main' 'rice side veg' ; background: #2b2230;
+  box-shadow: 0 0 0 7px var(--wrap), 0 14px 28px rgba(80, 30, 50, .3); }
+.bento.small { width: 120px; border-radius: 12px; gap: 3px; padding: 4px; box-shadow: 0 0 0 4px var(--wrap); }
+.bento .b-rice { grid-area: rice; }
+.bento .b-main { grid-area: main; }
+.bento .b-side { grid-area: side; }
+.bento .b-veg { grid-area: veg; }
+.bento .b-sweet { position: absolute; right: -14px; bottom: -14px; width: 30%; aspect-ratio: 1; border-radius: 50%; box-shadow: 0 0 0 5px #fff, 0 6px 14px rgba(0, 0, 0, .2); }
+.bento.small .b-sweet { right: -8px; bottom: -8px; box-shadow: 0 0 0 3px #fff; }
+.bento-cell { position: relative; border-radius: 14px; background: #3b3040; display: grid; place-items: center; overflow: hidden; cursor: pointer;
+  transition: background .25s, transform .15s; }
+.bento.small .bento-cell { border-radius: 7px; cursor: default; }
+.bento-cell small { color: rgba(255, 255, 255, .45); font-size: 12px; }
+.bento-cell.full { background: radial-gradient(circle at 40% 35%, color-mix(in srgb, var(--food) 55%, #fff), var(--food)); }
+.bento-cell:active { transform: scale(.97); }
+.bento-food { display: flex; flex-wrap: wrap; justify-content: center; align-items: center; gap: 0 2px; padding: 4px; }
+.bento-food i { font-style: normal; font-size: clamp(18px, 4vw, 34px); line-height: 1.05; animation: btPop .35s cubic-bezier(.3, 1.8, .5, 1) backwards; animation-delay: calc(var(--i) * .05s);
+  filter: drop-shadow(0 2px 1px rgba(0, 0, 0, .18)); }
+.b-rice .bento-food i { font-size: clamp(34px, 8vw, 62px); }
+.bento.small .bento-food i { font-size: 13px; animation: none; }
+.bento.small .b-rice .bento-food i { font-size: 22px; }
+.bento.small small { display: none; }
+@keyframes btPop { from { transform: scale(.2) rotate(-30deg); opacity: 0; } }
+.bento-note { position: absolute; left: -12px; top: -14px; font-size: 26px; transform: rotate(-12deg); filter: drop-shadow(0 3px 2px rgba(0, 0, 0, .2)); }
+.bento.small .bento-note { font-size: 14px; left: -6px; top: -8px; }
+
+.bt-score { display: flex; flex-direction: column; align-items: center; gap: 2px; margin-top: 14px; }
+.bt-hearts { display: flex; gap: 4px; font-size: 24px; }
+.bt-hearts i { font-style: normal; color: #f0dfe5; transition: color .3s; }
+.bt-hearts i.on { color: #e8577d; animation: btPop .4s; }
+.bt-score small { color: var(--ink-soft); font-size: 12px; text-align: center; }
+
+/* Picker */
+.bt-tabs { display: flex; flex-wrap: wrap; gap: 6px; }
+.bt-tabs button { font: inherit; font-size: 13px; font-weight: 600; padding: 6px 12px; border: 0; border-radius: 999px; background: #fff; color: var(--ink-soft);
+  box-shadow: inset 0 0 0 1.5px #f4dce4; cursor: pointer; }
+.bt-tabs button.on { background: #e8577d; color: #fff; box-shadow: 0 4px 10px rgba(232, 87, 125, .3); }
+.bt-foods { display: grid; grid-template-columns: repeat(auto-fill, minmax(118px, 1fr)); gap: 8px; }
+.bt-food { position: relative; display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 10px 6px 8px; border-radius: 16px; border: 2px solid #f4dce4;
+  background: #fff; font: inherit; color: var(--ink); cursor: pointer; transition: transform .12s, border-color .2s; }
+.bt-food span { font-size: 30px; }
+.bt-food b { font-size: 13px; text-align: center; }
+.bt-food small { font-size: 10px; color: #3f8a35; }
+.bt-food em { position: absolute; top: -8px; right: -4px; font-style: normal; font-size: 10px; font-weight: 700; background: #e8577d; color: #fff; padding: 2px 7px; border-radius: 999px; }
+.bt-food.on { border-color: #e8577d; background: #fff1f6; box-shadow: 0 0 0 3px rgba(232, 87, 125, .18); }
+.bt-food:disabled { opacity: .45; cursor: default; }
+.bt-food:active:not(:disabled) { transform: scale(.95); }
+.bt-notel { display: flex; flex-direction: column; gap: 4px; font-weight: 600; font-size: 14px; }
+.bt-notel small { color: var(--ink-soft); font-weight: 400; }
+.bt-note { font: inherit; padding: 10px 12px; border-radius: 14px; border: 2px solid #f4dce4; background: #fff; }
+.bt-note:focus { outline: none; border-color: #e8577d; }
+.bt-wraps { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--ink-soft); }
+.bt-wrap { width: 30px; height: 30px; border-radius: 50%; border: 2px solid rgba(0, 0, 0, .1); cursor: pointer; }
+.bt-wrap.on { box-shadow: 0 0 0 3px #e8577d; }
+.bt-go { margin-top: auto; }
+
+@media (max-height: 520px), (max-width: 760px) {
+  .bt-main { gap: 12px; padding: 14px 12px 10px; }
+  .bt-top h2 { font-size: 21px; }
+  .bt-craving { padding: 4px 10px 4px 4px; }
+  .bt-craving img { width: 34px; height: 34px; }
+  .bento { width: min(250px, 100%); }
+  .bt-foods { grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)); }
+  .bt-food span { font-size: 24px; }
+  .bt-go { font-size: 15px; padding: 10px 14px; }
+}

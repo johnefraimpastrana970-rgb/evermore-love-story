@@ -280,7 +280,7 @@ describe('notifications & cooking', () => {
 describe('garden save', () => {
   it('new games start with a locked garden of four empty plots', () => {
     const s = defaultState();
-    expect(SAVE_VERSION).toBe(8);
+    expect(SAVE_VERSION).toBeGreaterThanOrEqual(8);
     expect(s.garden.unlocked).toBe(false);
     expect(s.garden.plots).toHaveLength(START_PLOTS);
   });

@@ -2,8 +2,9 @@ import type { LocationId, ObjectiveDef, QuestDef, TimeOfDay } from '../content/t
 import { defaultPhone, PhoneState } from '../phone/types';
 import { defaultPizza, repairPizza, UNLOCK_LEVEL as PIZZA_UNLOCK, type PizzaState } from '../pizza/logic';
 import { defaultGarden, repairGarden, type GardenState } from '../garden/logic';
+import { defaultWork, repairWork, type WorkState } from '../work/logic';
 
-export const SAVE_VERSION = 8;
+export const SAVE_VERSION = 9;
 
 /** His real look (from his character art) + the older defaults. */
 export const HIS_DEFAULT_OWNED = ['his-hair-black', 'his-outfit-raglan', 'his-hair-ink', 'his-outfit-navy'];
@@ -83,6 +84,8 @@ export interface GameState {
   pizza: PizzaState;
   /** The backyard garden (unlocks at level 5). Shares the pizza coins. */
   garden: GardenState;
+  /** His job: the bento she packed, shifts today, and whether he's away or waiting at the door. */
+  work: WorkState;
 }
 
 export function defaultSettings(): Settings {
@@ -146,6 +149,7 @@ export function defaultState(herName = '', hisName = '', playAs: 'her' | 'him' =
     phone: defaultPhone(),
     pizza: defaultPizza(),
     garden: defaultGarden(),
+    work: defaultWork(),
   };
 }
 
@@ -200,6 +204,8 @@ export function migrate(raw: unknown): GameState {
   repairPizza(s.pizza);
   // v7 -> v8: the garden. The unlock scene (and starter seeds) plays in the game, not here.
   repairGarden(s.garden);
+  // v8 -> v9: his job (bento, shifts).
+  repairWork(s.work);
   if (s.profile.playAs !== 'him') s.profile.playAs = 'her'; // older saves: she was always the player
   if (!Number.isFinite(s.level) || s.level < 1) s.level = 1;
   if (!Number.isFinite(s.xp) || s.xp < 0) s.xp = 0;

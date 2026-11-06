@@ -22,9 +22,17 @@ import { locationCard, fadeOut, fadeIn, welcome } from '../ui/overlays';
 import { CoupleDirector } from './couple';
 import { openGarden } from '../garden/garden';
 import { gardenUnlocked } from '../garden/unlock';
+import { openBento } from '../work/bento';
+import { openDoor, partnerAway, waitingAtDoor } from '../work/work';
+import { UNLOCK_LEVEL as WORK_UNLOCK } from '../work/data';
 
 /** A hotspot's on-screen name (the backyard flower bed becomes our garden at level 5). */
-const hotspotLabel = (h: Hotspot) => (h.id === 'yard-flowers' && gardenUnlocked() ? 'Our Garden 🌷' : store.fmt(h.label));
+const hotspotLabel = (h: Hotspot) => {
+  if (h.id === 'yard-flowers' && gardenUnlocked()) return 'Our Garden 🌷';
+  if (h.id === 'living-front' && waitingAtDoor()) return `Open the door for ${store.partnerName()} ♡`;
+  if (h.id === 'kitchen-bento' && store.hasGame && store.state.level >= WORK_UNLOCK) return `Pack lunch for ${store.partnerName()} 🍱`;
+  return store.fmt(h.label);
+};
 
 interface WorldData { location: LocationId; spawnX?: number; spawnY?: number; fromLoad?: boolean; intro?: boolean }
 
@@ -238,6 +246,8 @@ export class WorldScene extends Phaser.Scene {
     on('reload-world', () => void this.travel(store.state.location));
     // "Hug" in the talk menu (and the long hug when she needs one) plays a real hug in the world.
     on('dialogue:node', (id: string) => { if (id === '__hug' || id === 'feel-hug') void this.couple.hug(id === 'feel-hug' ? 6000 : 2800); });
+    on('work:leave', () => this.partnerLeaves());
+    on('work:home', () => this.partnerArrives());
     on('hands', (holding: boolean) => {
       if (!this.him) return;
       if (holding) { this.couple.emoteAt(this.player, this.him); this.mo(this.him).sqV -= 0.6; }
@@ -358,19 +368,59 @@ export class WorldScene extends Phaser.Scene {
     this.cameras.main.startFollow(this.player, true, 0.09, 0.09, 0, 120);
 
     const mode = store.settings.companionMode;
-    if (mode !== 'hidden') {
-      this.hisKey = ensureCharacter(this, lookFor(store.partner()));
+    // He's only in the house when he isn't at work (or waiting at the door).
+    if (mode !== 'hidden' && !partnerAway()) {
       const hx = mode === 'stay' ? Phaser.Math.Clamp(loc.spawnX + 260, 60, loc.width - 60) : x - 90;
-      this.him = this.add.sprite(Phaser.Math.Clamp(hx, 40, loc.width - 40), y - 8, this.hisKey, 0).setOrigin(0.5, 1);
-      this.him.play(`${this.hisKey}-idle`);
-      this.addShadow(this.him);
-      this.him.setInteractive({ useHandCursor: true, pixelPerfect: false });
-      this.him.on('pointerdown', () => {
-        if (store.blocked || this.busy) return;
-        audio.unlock();
-        this.walkToTarget({ kind: 'him', x: this.him!.x + (this.player.x < this.him!.x ? -70 : 70), label: `Talk to ${store.partnerName()}` });
-      });
+      this.spawnPartner(hx, y - 8);
     }
+  }
+
+  private spawnPartner(x: number, y: number) {
+    if (this.him) return;
+    const loc = this.loc;
+    this.hisKey = ensureCharacter(this, lookFor(store.partner()));
+    this.him = this.add.sprite(Phaser.Math.Clamp(x, 40, loc.width - 40), Phaser.Math.Clamp(y, loc.floorTop, loc.floorBottom), this.hisKey, 0).setOrigin(0.5, 1);
+    this.him.play(`${this.hisKey}-idle`);
+    this.addShadow(this.him);
+    this.him.setInteractive({ useHandCursor: true, pixelPerfect: false });
+    this.him.on('pointerdown', () => {
+      if (store.blocked || this.busy) return;
+      audio.unlock();
+      this.walkToTarget({ kind: 'him', x: this.him!.x + (this.player.x < this.him!.x ? -70 : 70), label: `Talk to ${store.partnerName()}` });
+    });
+  }
+
+  /** He heads out: a wave, then he walks off toward the nearest edge and fades away. */
+  private partnerLeaves() {
+    const him = this.him;
+    if (!him) return;
+    this.him = undefined;
+    this.styles.delete(him);
+    const sh = this.shadows.get(him);
+    this.shadows.delete(him);
+    this.motions.delete(him);
+    him.disableInteractive();
+    const toRight = him.x > this.loc.width / 2;
+    him.setScale(Math.abs(him.scaleX) * (toRight ? 1 : -1), him.scaleY);
+    him.play(`${this.hisKey}-walk`, true);
+    const dist = 260;
+    this.tweens.add({ targets: [him, sh].filter(Boolean), x: him.x + (toRight ? dist : -dist), alpha: 0, duration: 1600, ease: 'Sine.easeIn',
+      onComplete: () => { him.destroy(); sh?.destroy(); } });
+    this.couple.emote(him.x, him.y - FRAME_H * Math.abs(him.scaleY) - 4, '👋');
+  }
+
+  /** She opens the front door: he steps in from outside. */
+  private partnerArrives() {
+    if (this.him || store.settings.companionMode === 'hidden') return;
+    const door = this.loc.hotspots.find((h) => h.id === 'living-front');
+    const x = door ? door.x + door.w / 2 : this.player.x + 120;
+    this.spawnPartner(x, this.player.y - 4);
+    const him = this.him!;
+    him.setAlpha(0);
+    this.tweens.add({ targets: him, alpha: 1, duration: 400 });
+    this.mo(him).faceT = this.player.x < him.x ? -1 : 1;
+    this.mo(this.player).faceT = this.player.x < him.x ? 1 : -1;
+    this.burst(him.x, him.y - 120, 'p-heart', 10);
   }
 
   private addShadow(spr: Phaser.GameObjects.Sprite) {
@@ -603,6 +653,18 @@ export class WorldScene extends Phaser.Scene {
     const hx = h.x + h.w / 2;
     if (Math.abs(hx - this.player.x) > 20) this.mo(this.player).faceT = hx > this.player.x ? 1 : -1;
     // From level 5 the backyard flower bed is our garden.
+    // His lunch box (from level 2), and the front door when he's waiting outside.
+    if (h.id === 'kitchen-bento' && store.state.level >= WORK_UNLOCK) {
+      await openBento();
+      interact(h.id);
+      return;
+    }
+    if (h.id === 'living-front' && waitingAtDoor()) {
+      audio.sfx('door');
+      await openDoor();
+      interact(h.id);
+      return;
+    }
     if (h.id === 'yard-flowers' && gardenUnlocked()) {
       await openGarden();
       interact(h.id);
