@@ -1,6 +1,6 @@
 // Usage: node tools/cutout-title.mjs <projectDir> [--debug]
 // Cuts the couple illustration ("art src/title-couple.jpg") out of its lavender gradient background and writes a
-// transparent WebP to public/assets/art/title-couple.webp for the title screen.
+// transparent WebP to src/assets/art/title-couple.webp for the title screen (imported, so builds get a fresh hashed name).
 // How: the background is a soft vertical gradient and the figures have dark outlines, so we flood-fill the
 // background in from the image border (matching the gradient row by row; the outlines stop the fill), clear enclosed
 // background pockets, then soften the edge and remove the lavender halo from edge pixels ("un-mixing" the colour).
@@ -16,7 +16,7 @@ const require = createRequire(path.join(projectDir, 'package.json'));
 const { chromium } = require('playwright-core');
 
 const src = path.join(projectDir, 'art src', 'title-couple.jpg');
-const outDir = path.join(projectDir, 'public', 'assets', 'art');
+const outDir = path.join(projectDir, 'src', 'assets', 'art');
 fs.mkdirSync(outDir, { recursive: true });
 const b64 = fs.readFileSync(src).toString('base64');
 
@@ -193,4 +193,4 @@ if (debug) {
   save(path.join(dbg, 'title-couple-dark.png'), res.dark);
   save(path.join(dbg, 'title-couple-pink.png'), res.pink);
 }
-console.log(`source ${res.W}×${res.H} → cutout ${res.cw}×${res.chh}, ${res.pockets} enclosed pocket(s) cleared → public/assets/art/title-couple.webp`);
+console.log(`source ${res.W}×${res.H} → cutout ${res.cw}×${res.chh}, ${res.pockets} enclosed pocket(s) cleared → src/assets/art/title-couple.webp`);

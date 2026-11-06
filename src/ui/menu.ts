@@ -5,6 +5,8 @@ import { latestSlot, readSlot, SLOTS, slotInfo, SlotId } from '../core/save';
 import { DEFAULT_NAMES, GAME_SUBTITLE, GAME_TITLE } from '../content/config';
 import { LOCATIONS } from '../content/locations';
 import { HER_AVATAR, HIS_AVATAR } from '../content/characters';
+// Imported (not linked from public/) so every rebuilt cutout gets a new file name and is never served from cache.
+import coupleArt from '../assets/art/title-couple.webp';
 
 const AVATAR = { her: HER_AVATAR, him: HIS_AVATAR };
 
@@ -40,7 +42,7 @@ export function showMenu(): Promise<MenuResult> {
           <button class="mbtn" data-a="about">About</button>
         </div>
         <div class="menu-vol"><span>♪</span><input type="range" min="0" max="1" step="0.05" value="${store.settings.master}" aria-label="Volume"></div>
-        <img class="title-couple" src="assets/art/title-couple.webp" alt="" decoding="async">
+        <div class="title-couple"><img src="${coupleArt}" alt="" decoding="async"></div>
         <div class="menu-foot">Made with love · no last level, no final page</div>`;
       menu.querySelector('[data-a=continue]')?.addEventListener('click', () => { click(); resolve({ kind: 'load', slot: latest! }); });
       menu.querySelector('[data-a=new]')!.addEventListener('click', () => { click(); newStory(); });
