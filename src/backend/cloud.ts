@@ -75,6 +75,24 @@ export const cloud = {
     }
   },
 
+  /**
+   * Ask the `ai-chat` Edge Function for his reply (the Groq key stays on the server).
+   * Returns the reply, or an error code: 'off' (no cloud / not signed in), 'cap' (today's replies used up), or another code.
+   */
+  async aiChat(body: { messages: { role: 'user' | 'assistant'; content: string }[]; context: string; him: string; her: string; partnerIs: 'boyfriend' | 'girlfriend' }): Promise<{ reply: string } | { error: string }> {
+    if (!this.configured) return { error: 'off' };
+    const c = await sb();
+    const { data: s } = await c.auth.getSession();
+    if (!s.session) return { error: 'off' };
+    const { data, error } = await c.functions.invoke('ai-chat', { body });
+    if (error) {
+      const status = (error as { context?: Response }).context?.status;
+      return { error: status === 429 ? 'cap' : status === 503 ? 'not-configured' : 'failed' };
+    }
+    const reply = typeof data?.reply === 'string' ? data.reply.trim() : '';
+    return reply ? { reply } : { error: 'empty' };
+  },
+
   /** Short-lived signed URL for a private photo ("cloud:<path>"). */
   async signedUrl(path: string): Promise<string | null> {
     if (!this.configured) return null;

@@ -81,10 +81,12 @@ export interface PhoneState {
   wallpaper: string;
   /** Last time the messages thread was read (for the unread badge). */
   readAt: number;
+  /** AI replies used today (the server keeps the real count; this just avoids asking once it's used up). */
+  ai: { day: string; count: number };
 }
 
 export function defaultPhone(): PhoneState {
-  return { messages: [], contacts: [], notes: [], reminders: [], history: [], bests: {}, greetings: {}, wallpaper: 'blush', readAt: 0 };
+  return { messages: [], contacts: [], notes: [], reminders: [], history: [], bests: {}, greetings: {}, wallpaper: 'blush', readAt: 0, ai: { day: '', count: 0 } };
 }
 
 export const uid = (p = '') => p + Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
