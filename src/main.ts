@@ -28,6 +28,7 @@ import { initPizza } from './pizza/unlock';
 import { initGarden } from './garden/unlock';
 import { initWork } from './work/work';
 import { initPets } from './pets/pets';
+import { initDev } from './dev';
 import './phone/apps';
 import { HER_PORTRAITS, HIS_PORTRAITS } from './content/characters';
 
@@ -59,6 +60,7 @@ async function boot() {
   initGarden();
   initWork();
   initPets();
+  initDev();
   audio.setVolumes(store.settings);
   void cloud.init();
 
