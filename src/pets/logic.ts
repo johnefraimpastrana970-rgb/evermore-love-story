@@ -1,5 +1,5 @@
 import {
-  DECAY, MAX_PETS, NEED_FLOOR, PERSONALITIES, PET_FOODS, PET_GIFTS, PET_ROOMS, STRAY_FEEDS, STRAY_GAP_MIN, STRAY_LEVEL,
+  BREEDS, DECAY, MAX_PETS, NEED_FLOOR, PERSONALITIES, PET_FOODS, PET_GIFTS, PET_ROOMS, STRAY_FEEDS, STRAY_GAP_MIN, STRAY_LEVEL,
   breed, petFood, type ActivityId, type Personality, type Species,
 } from './data';
 import type { LocationId } from '../content/types';
@@ -227,6 +227,39 @@ export function adoptStray(s: PetsState, name: string, now: number): Pet | null 
   s.stray = null;
   s.strayDone = true;
   return p;
+}
+
+// ------------------------------------------------------------------ the pet shop
+
+export const SHOP_LEVEL = 4;
+export const LINEUP_SIZE = 4;
+
+/** Today's animals at the pet shop (stable for the day): breeds unlocked at her level, each with a personality. */
+export function lineup(day: string, level: number): { breed: string; personality: Personality; price: number }[] {
+  const pool = BREEDS.filter((b) => b.price > 0 && b.level <= Math.max(SHOP_LEVEL, level));
+  const ranked = [...pool].sort((a, b) => hash(`${day}|${a.id}`) - hash(`${day}|${b.id}`));
+  // Shuffle the personalities for the day so the four animals all feel different.
+  const ps = (Object.keys(PERSONALITIES) as Personality[]).sort((a, b) => hash(`${day}|p|${a}`) - hash(`${day}|p|${b}`));
+  return ranked.slice(0, LINEUP_SIZE).map((b, i) => ({ breed: b.id, personality: ps[i % ps.length], price: b.price }));
+}
+
+/** Buy a pet from today's lineup with heart tokens. */
+export function buyPet(s: PetsState, wallet: { tokens: number }, day: string, level: number, breedId: string, name: string, now: number): Pet | null {
+  if (level < SHOP_LEVEL) return null;
+  const offer = lineup(day, level).find((o) => o.breed === breedId);
+  if (!offer || wallet.tokens < offer.price || s.list.length >= MAX_PETS) return null;
+  const p = adopt(s, breedId, offer.personality, name, now);
+  if (!p) return null;
+  wallet.tokens -= offer.price;
+  return p;
+}
+
+export function buyFood(s: PetsState, wallet: { tokens: number }, foodId: string): boolean {
+  const f = petFood(foodId);
+  if (!f || wallet.tokens < f.price) return false;
+  wallet.tokens -= f.price;
+  s.food[foodId] = (s.food[foodId] ?? 0) + f.pack;
+  return true;
 }
 
 // ------------------------------------------------------------------ gifts while she's away

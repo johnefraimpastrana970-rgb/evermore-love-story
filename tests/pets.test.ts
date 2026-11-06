@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { BREEDS, NEED_FLOOR, PERSONALITIES, PET_FOODS, PET_GIFTS, PET_ROOMS, STRAY_FEEDS, STRAY_GAP_MIN, STRAY_LEVEL, MAX_PETS } from '../src/pets/data';
 import {
-  adopt, adoptStray, applyActivity, bondLevel, canEat, defaultPets, feed, feedStray, foodsFor, maybeStray, mood, pat, PET_COOLDOWN,
+  adopt, adoptStray, applyActivity, bondLevel, buyFood, buyPet, canEat, lineup, defaultPets, feed, feedStray, foodsFor, maybeStray, mood, pat, PET_COOLDOWN,
   repairPets, rollGifts, roomOf, strayWantsToStay, takeGift, tick, type PetsState,
 } from '../src/pets/logic';
 import { ITEMS } from '../src/content/items';
@@ -121,6 +121,32 @@ describe('pets around the house', () => {
     const s = withFood();
     for (let i = 0; i < MAX_PETS; i++) expect(adopt(s, 'cat-black', 'lazy', `C${i}`, T0)).not.toBeNull();
     expect(adopt(s, 'cat-black', 'lazy', 'One too many', T0)).toBeNull();
+  });
+});
+
+describe('pet shop', () => {
+  it('a daily lineup of 4 unlocked animals, stable for the day', () => {
+    const a = lineup('2026-11-07', 4);
+    expect(a).toHaveLength(4);
+    expect(lineup('2026-11-07', 4)).toEqual(a);
+    for (const o of a) expect(BREEDS.find((b) => b.id === o.breed)!.level).toBeLessThanOrEqual(4);
+    expect(new Set(a.map((o) => o.personality)).size).toBe(4); // all different
+    const later = lineup('2026-11-07', 20).map((o) => o.breed);
+    expect(later.every((id) => BREEDS.find((b) => b.id === id)!.price > 0)).toBe(true);
+  });
+  it('buys pets and food with heart tokens', () => {
+    const s = defaultPets();
+    const wallet = { tokens: 1000 };
+    const offer = lineup('2026-11-07', 8)[0];
+    expect(buyPet(s, wallet, '2026-11-07', 3, offer.breed, 'Too early', T0)).toBeNull();
+    expect(buyPet(s, wallet, '2026-11-07', 8, 'cat-orange', 'Not sold', T0)).toBeNull();
+    const p = buyPet(s, wallet, '2026-11-07', 8, offer.breed, 'Bean', T0)!;
+    expect(p.personality).toBe(offer.personality);
+    expect(wallet.tokens).toBe(1000 - offer.price);
+    expect(buyPet(s, { tokens: 1 }, '2026-11-07', 8, offer.breed, 'Broke', T0)).toBeNull();
+    expect(buyFood(s, wallet, 'fish')).toBe(true);
+    expect(s.food.fish).toBe(PET_FOODS.find((f) => f.id === 'fish')!.pack);
+    expect(buyFood(s, { tokens: 0 }, 'fish')).toBe(false);
   });
 });
 

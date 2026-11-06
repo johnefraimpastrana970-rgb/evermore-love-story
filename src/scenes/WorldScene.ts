@@ -28,6 +28,7 @@ import { UNLOCK_LEVEL as WORK_UNLOCK } from '../work/data';
 import { PetWorld } from '../pets/world';
 import { openPetCard } from '../pets/card';
 import { collectGift } from '../pets/pets';
+import { openCare } from '../pets/care';
 
 /** A hotspot's on-screen name (the backyard flower bed becomes our garden at level 5). */
 const hotspotLabel = (h: Hotspot) => {
@@ -221,7 +222,10 @@ export class WorldScene extends Phaser.Scene {
     this.couple.buildProps();
     this.pets = new PetWorld({
       scene: this, loc: this.loc, player: () => this.player,
-      onTap: (pet) => void openPetCard(pet, { react: (p, anim, ms, line) => this.pets?.react(p, anim, ms, line) }),
+      onTap: (pet) => void openPetCard(pet, {
+        react: (p, anim, ms, line) => this.pets?.react(p, anim, ms, line),
+        care: (p) => void openCare(p),
+      }),
       onGift: (id) => { collectGift(id); this.pets?.popGift(id); },
     });
     this.pets.build();

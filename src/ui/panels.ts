@@ -24,6 +24,8 @@ import { openMarket } from '../pizza/market';
 import { openGarden } from '../garden/garden';
 import { gardenUnlocked } from '../garden/unlock';
 import { stage } from '../garden/logic';
+import { openPetShop, petShopOpen } from '../pets/shop';
+import { SHOP_LEVEL as PET_SHOP_LEVEL } from '../pets/logic';
 import { UNLOCK_LEVEL } from '../pizza/logic';
 import { COSMETICS } from '../content/cosmetics';
 import { LOCATIONS, LOCATION_ORDER } from '../content/locations';
@@ -503,6 +505,20 @@ function renderMap(body: HTMLElement) {
       if (!open) { audio.sfx('error'); shake(pin); toast(`The ${town.name} opens when you reach level ${UNLOCK_LEVEL} ♡`, 'heart'); return; }
       closePanel();
       void town.go();
+    });
+    art.appendChild(pin);
+  }
+  // The pet shop in town (opens at level 4; a CLOSED banner until then).
+  {
+    const open = petShopOpen();
+    const pin = el('button', `pin-loc pin-town pin-pets ${open ? '' : 'locked'}`, `<span class="pin-emoji">🐾</span><b>Pet Shop</b>
+      <small>${open ? 'Paws & Whiskers' : `Opens at Lv ${PET_SHOP_LEVEL}`}</small>${open ? '' : '<i class="closed-banner">CLOSED</i>'}`);
+    pin.style.left = '39%';
+    pin.style.top = '84%';
+    pin.addEventListener('click', () => {
+      if (!open) { audio.sfx('error'); shake(pin); toast(`The pet shop opens when you reach level ${PET_SHOP_LEVEL} 🐾`, 'heart'); return; }
+      closePanel();
+      void openPetShop();
     });
     art.appendChild(pin);
   }
