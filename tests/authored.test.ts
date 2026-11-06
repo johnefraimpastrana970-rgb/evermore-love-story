@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { AUTHORED, mergeEntries, mergeGreetings, mergeOccasions, normalizeAuthored, parseScene } from '../src/content/authored';
+import { AUTHORED, mergeEntries, mergeGreetings, mergeOccasions, normalizeAuthored, occasionBanner, ordinal, parseScene } from '../src/content/authored';
 import { PERSONAL, PERSONAL_TEMPLATES } from '../src/content/personal';
 import { OCCASION_TEMPLATES } from '../src/content/occasions';
 import { activeOccasions } from '../src/systems/occasions';
@@ -18,15 +18,17 @@ describe('authored content (Author tool)', () => {
         { id: 'letter-welcome', kind: 'letter', title: 'dupe', body: 'x' },
         { id: 'x', kind: 'spaceship', title: 'no' },
         { id: 'p', kind: 'photo', title: 'P', image: '../../etc/passwd' },
+        { id: 'online', kind: 'photo', title: 'Online', image: 'https://example.com/file.jpg' },
         { id: 'q', kind: 'photo', title: 'Q', image: 'assets/photos/authored/us.jpg', unlock: { minLevel: 3, time: ['night', 'noon'] } },
       ],
       occasions: { anniversary: { enabled: true, rule: { type: 'yearly', month: 13, day: 1 } }, monthsary: { enabled: true, rule: { type: 'monthly', day: 14 } }, valentines: { enabled: false } },
       words: ['pancakes', 'ok', 'Chi-chi', 'PANCAKES'],
     });
     expect(a.names).toEqual({ her: 'Chi Chi', him: '' });
-    expect(a.entries.map((e) => e.id)).toEqual(['letter-welcome', 'p', 'q']);
+    expect(a.entries.map((e) => e.id)).toEqual(['letter-welcome', 'p', 'online', 'q']);
     expect(a.entries[1].image).toBeUndefined();
-    expect(a.entries[2].unlock).toEqual({ minLevel: 3, time: ['night'] });
+    expect(a.entries[2].image).toBeUndefined();
+    expect(a.entries[3].unlock).toEqual({ minLevel: 3, time: ['night'] });
     expect(a.occasions.anniversary.enabled).toBe(false); // invalid date never switches a day on
     expect(a.occasions.monthsary.rule).toEqual({ type: 'monthly', day: 14 });
     expect(a.occasions.valentines).toBeUndefined();
@@ -66,6 +68,27 @@ describe('authored content (Author tool)', () => {
   it('an entry can open when a garden flower blooms', () => {
     const a = normalizeAuthored({ entries: [{ id: 'garden-letter-1', kind: 'letter', title: 'Moon', body: 'Hi', unlock: { flag: 'garden-bloom:sp-moonpetal' } }] });
     expect(a.entries[0].unlock).toEqual({ flag: 'garden-bloom:sp-moonpetal' });
+  });
+
+  it('the shipped special days: anniversary Nov 5, monthsary the 5th, birthdays Aug 8 / Jan 13 with their age', () => {
+    const occ = mergeOccasions(OCCASION_TEMPLATES, AUTHORED);
+    const on = (d: Date) => activeOccasions(occ, d).map((o) => o.id);
+    expect(on(new Date(2027, 10, 5))).toEqual(expect.arrayContaining(['anniversary', 'monthsary']));
+    expect(on(new Date(2027, 2, 5))).toContain('monthsary');
+    expect(on(new Date(2027, 2, 6))).not.toContain('monthsary');
+    expect(on(new Date(2027, 7, 8))).toContain('her-birthday');
+    expect(on(new Date(2027, 0, 13))).toContain('his-birthday');
+    expect(on(new Date(2026, 11, 25))).toContain('christmas');
+    expect(on(new Date(2027, 1, 14))).toContain('valentines');
+    expect(on(new Date(2027, 0, 1))).toContain('newyear');
+    const her = occ.find((o) => o.id === 'her-birthday')!;
+    expect(occasionBanner(her, new Date(2026, 7, 8))).toBe('Happy 19th Birthday, {her}!');
+    expect(occasionBanner(occ.find((o) => o.id === 'his-birthday')!, new Date(2027, 0, 13))).toBe('It’s {him}’s 20th birthday!');
+    // No placeholder text on the personal days.
+    for (const id of ['occ-anniversary', 'occ-birthday', 'occ-his-birthday', 'occ-monthsary']) {
+      expect(mergeGreetings(OCCASION_TEMPLATES, {}, AUTHORED)[id]?.every((l) => !l.text.includes('⟦')), id).toBe(true);
+    }
+    expect(ordinal(1)).toBe('1st'); expect(ordinal(22)).toBe('22nd'); expect(ordinal(13)).toBe('13th'); expect(ordinal(103)).toBe('103rd');
   });
 
   it('a special day with a date switches on, with its own greeting', () => {

@@ -336,6 +336,7 @@ function renderDays() {
         <div class="row">
           ${info.monthly ? '' : `<label class="inline">Month <select data-month><option value="0">—</option>${MONTHS.map((m, i) => `<option value="${i + 1}" ${month === i + 1 ? 'selected' : ''}>${m}</option>`).join('')}</select></label>`}
           <label class="inline">Day <select data-day><option value="0">—</option>${Array.from({ length: 31 }, (_, i) => `<option ${day === i + 1 ? 'selected' : ''}>${i + 1}</option>`).join('')}</select></label>
+          ${id.endsWith('birthday') ? `<label class="inline">Year born <span>(optional, shows the age)</span><input type="number" min="1900" max="2100" data-year value="${o.year ?? ''}" placeholder="e.g. 2007"></label>` : ''}
           <span class="day-warn"></span>
         </div>
         <label>Name of the day <span>(the banner)</span><input data-name maxlength="80" value="${esc(o.name ?? '')}" placeholder="${esc(strip(t.name))}"></label>
@@ -353,6 +354,8 @@ function renderDays() {
       o.enabled = (card.querySelector('[data-on]') as HTMLInputElement).checked;
       o.name = (card.querySelector('[data-name]') as HTMLInputElement).value;
       o.greeting = (card.querySelector('[data-greet]') as HTMLTextAreaElement).value;
+      const y = Number((card.querySelector('[data-year]') as HTMLInputElement | null)?.value);
+      if (Number.isInteger(y) && y >= 1900 && y <= 2100) o.year = y; else delete o.year;
       data.occasions[id] = o;
       const bad = !monthly && m && d && d > new Date(2024, m, 0).getDate();
       card.querySelector('.day-warn')!.textContent = o.enabled && !o.rule ? '⚠ Pick the date to turn it on' : bad ? '⚠ That month is shorter' : '';

@@ -201,6 +201,10 @@ describe('saves', () => {
     expect(m.cosmetics.equipped.herHair).toBeDefined();
     expect(m.quests.active).toEqual({});
   });
+  it('removes the legacy online AI counter from existing saves', () => {
+    const m = migrate({ version: SAVE_VERSION, phone: { ai: { day: 'today', count: 10 } } });
+    expect(m.phone).not.toHaveProperty('ai');
+  });
   it('export/import', () => {
     const s = defaultState('A', 'B');
     s.inventory.cookie = 3;

@@ -180,6 +180,8 @@ function mergeDefaults<T>(def: T, saved: unknown): T {
 export function migrate(raw: unknown): GameState {
   if (!isObj(raw)) throw new Error('Save data is not an object');
   const s = mergeDefaults(defaultState(), raw);
+  // Remove the unused AI counter from saves created by older online-enabled versions.
+  delete (s.phone as PhoneState & { ai?: unknown }).ai;
   // v1 -> v2: "hearts" field renamed to tokens.
   const legacy = raw as { hearts?: number };
   if ((raw.version as number | undefined ?? 1) < 2 && typeof legacy.hearts === 'number') {

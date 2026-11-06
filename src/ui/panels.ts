@@ -38,7 +38,6 @@ import {
   currentOccasions, toast, afterChange,
 } from '../systems/game';
 import { SLOTS, slotInfo, exportSave, importSave, SlotId } from '../core/save';
-import { cloud } from '../backend/cloud';
 
 let layer: HTMLElement;
 let current: { id: PanelId; tab?: string; resolve: () => void; render: () => void } | null = null;
@@ -412,14 +411,12 @@ function kindIcon(k: PersonalKind) {
 }
 
 function photoThumb(e: PersonalEntry) {
-  if (e.image && !e.image.startsWith('cloud:')) return `<img class="thumb" src="${esc(e.image)}" alt="">`;
+  if (e.image) return `<img class="thumb" src="${esc(e.image)}" alt="">`;
   return iconImg('polaroid', 48);
 }
 
-export async function resolveImage(src?: string): Promise<string | null> {
-  if (!src) return null;
-  if (src.startsWith('cloud:')) return cloud.signedUrl(src.slice(6));
-  return src;
+export function resolveImage(src?: string): Promise<string | null> {
+  return Promise.resolve(src || null);
 }
 
 export function openReader(e: PersonalEntry): Promise<void> {
@@ -516,7 +513,7 @@ function renderMap(body: HTMLElement) {
 // ------------------------------------------------------------------ settings
 function renderSettings(body: HTMLElement, st: PanelState) {
   const set = store.settings;
-  const tab = tabs(body, st, [['audio', 'Sound'], ['play', 'Gameplay'], ['days', 'Special Days'], ['save', 'Save'], ['cloud', 'Cloud']], 'audio');
+  const tab = tabs(body, st, [['audio', 'Sound'], ['play', 'Gameplay'], ['days', 'Special Days'], ['save', 'Save']], 'audio');
   const sc = el('div', 'settings scroll');
   const row = (label: string, control: string, help = '') => `<label class="set-row"><span>${label}${help ? `<small>${help}</small>` : ''}</span>${control}</label>`;
   if (tab === 'audio') {
@@ -629,52 +626,6 @@ function renderSettings(body: HTMLElement, st: PanelState) {
       closePanel();
       bus.emit('reset-game');
     });
-  } else if (tab === 'cloud') {
-    renderCloud(sc, st);
   }
   body.appendChild(sc);
-}
-
-function renderCloud(sc: HTMLElement, st: PanelState) {
-  if (!cloud.configured) {
-    sc.innerHTML = `<p class="hint">Cloud sync is optional and not set up. It lets you sync saves between phone and computer and keep private photos in secure storage. See <code>SUPABASE.md</code>.</p>`;
-    return;
-  }
-  const user = cloud.userEmail();
-  if (!user) {
-    sc.innerHTML = `<p class="hint">Sign in with your email — you’ll get a magic link. Only the two of you should have accounts.</p>
-      <div class="set-row"><input type="email" placeholder="email@example.com" data-email><button class="btn" data-act="login">Send link</button></div>`;
-    sc.querySelector('[data-act=login]')!.addEventListener('click', async () => {
-      const email = (sc.querySelector('[data-email]') as HTMLInputElement).value.trim();
-      if (!email) return;
-      const err = await cloud.signIn(email);
-      toast(err ? `Couldn’t send link: ${err}` : 'Check your email for the sign-in link ♥', 'letter');
-    });
-    return;
-  }
-  sc.innerHTML = `<p class="hint">Signed in as <b>${esc(user)}</b>.</p>
-    <div class="set-actions">
-      <button class="btn" data-act="push">Upload this save</button>
-      <button class="btn" data-act="pull">Download cloud save</button>
-      <button class="btn" data-act="logout">Sign out</button>
-    </div><p class="hint" data-status></p>`;
-  const status = sc.querySelector('[data-status]') as HTMLElement;
-  sc.querySelector('[data-act=push]')!.addEventListener('click', async () => {
-    status.textContent = 'Uploading…';
-    const err = await cloud.push(store.state);
-    status.textContent = err ? `Upload failed: ${err}` : 'Uploaded ✓';
-  });
-  sc.querySelector('[data-act=pull]')!.addEventListener('click', async () => {
-    status.textContent = 'Downloading…';
-    const res = await cloud.pull();
-    if (typeof res === 'string') { status.textContent = `Download failed: ${res}`; return; }
-    if (!res) { status.textContent = 'No cloud save yet.'; return; }
-    if (res.updatedAt < store.state.updatedAt && !confirm('The cloud save is older than this one. Replace anyway?')) { status.textContent = 'Kept local save.'; return; }
-    store.load(res, store.slot);
-    store.save();
-    closePanel();
-    bus.emit('reload-world');
-    toast('Cloud save loaded!', 'heart', 'good');
-  });
-  sc.querySelector('[data-act=logout]')!.addEventListener('click', async () => { await cloud.signOut(); st.render(); });
 }

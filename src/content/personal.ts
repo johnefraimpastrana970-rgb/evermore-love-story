@@ -13,7 +13,7 @@ import { AUTHORED, mergeEntries } from './authored';
  * unlock: when the entry appears (any Condition – minLevel, secret, occasion, time,
  *         location, flag, questDone…). No unlock = available from the start.
  * image:  'assets/photos/file.jpg' (put file in public/assets/photos/) or
- *         'cloud:folder/file.jpg' (private Supabase Storage – see SUPABASE.md).
+ *         Photos are bundled from public/assets/photos/ and stay on this device.
  */
 export const PERSONAL_TEMPLATES: PersonalEntry[] = [
   // ---------------- Letters (mailbox in backyard) ----------------

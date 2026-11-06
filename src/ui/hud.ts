@@ -15,6 +15,7 @@ import { setHoldingHands, toggleHands } from '../systems/hands';
 import { partnerAway } from '../work/work';
 import { openDecorate } from '../home/decorate';
 import { isHouseRoom } from '../home/data';
+import { occasionBanner } from '../content/authored';
 
 let hud: HTMLElement;
 let promptEl: HTMLElement;
@@ -166,8 +167,9 @@ function render() {
 
   const occ = topOccasion();
   const oc = hud.querySelector('.hud-occ') as HTMLElement;
-  if (occ?.theme.banner) {
-    oc.innerHTML = `<span>✦ ${esc(occ.literal ? store.fmtLiteral(occ.theme.banner) : store.fmt(occ.theme.banner))} ✦</span>`;
+  const banner = occ ? occasionBanner(occ, store.now()) : undefined;
+  if (occ && banner) {
+    oc.innerHTML = `<span>✦ ${esc(occ.literal ? store.fmtLiteral(banner) : store.fmt(banner))} ✦</span>`;
     oc.classList.remove('hidden');
   } else oc.classList.add('hidden');
 }

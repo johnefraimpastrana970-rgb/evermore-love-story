@@ -199,6 +199,8 @@ export interface OccasionDef {
   placeholder?: boolean;
   /** About one real person (a birthday): banner and greeting keep the real names whoever is played. */
   literal?: boolean;
+  /** Birth year (birthdays): the banner's {age} becomes "19th" etc. */
+  sinceYear?: number;
 }
 
 export interface PersonalEntry {
@@ -208,7 +210,7 @@ export interface PersonalEntry {
   body?: string;
   /** Free text, e.g. "2024-02-14". Never invented — fill in yourself. */
   date?: string;
-  /** Image URL: "assets/photos/x.jpg" (bundled) or "cloud:folder/x.jpg" (private Supabase Storage). */
+  /** Local image URL, e.g. "assets/photos/x.jpg". */
   image?: string;
   location?: LocationId;
   unlock?: Condition;

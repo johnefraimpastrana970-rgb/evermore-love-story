@@ -15,6 +15,8 @@ export interface OccasionOverride {
   rule?: Extract<OccasionRule, { type: 'yearly' } | { type: 'monthly' }>;
   /** The greeting played once on the day (replaces the template line). */
   greeting?: string;
+  /** Birthdays only: the year of birth, so the banner can say "Happy 19th Birthday". */
+  year?: number;
 }
 export interface AuthoredContent {
   version: 1;
@@ -72,7 +74,7 @@ function cleanEntry(v: unknown): PersonalEntry | null {
   if (str(v.body)) e.body = str(v.body);
   if (str(v.date, 40)) e.date = str(v.date, 40);
   const img = str(v.image, 300);
-  if (img && /^(assets\/photos\/[\w./-]+|cloud:[\w./-]+)$/.test(img) && !img.includes('..')) e.image = img;
+  if (img && /^assets\/photos\/[\w./-]+$/.test(img) && !img.includes('..')) e.image = img;
   const unlock = cleanCondition(v.unlock);
   if (unlock) e.unlock = unlock;
   const xp = int(v.rewardXp, 0, 100000);
@@ -95,7 +97,22 @@ function cleanOverride(v: unknown): OccasionOverride | null {
     if (day) o.rule = { type: 'monthly', day };
   }
   if (o.enabled && !o.rule) o.enabled = false; // never switch on a day without a real date
+  const year = int(v.year, 1900, 2100);
+  if (year && o.rule?.type === 'yearly') o.year = year;
   return o;
+}
+
+/** "1st", "2nd", "19th"… */
+export function ordinal(n: number): string {
+  const s = ['th', 'st', 'nd', 'rd'], v = n % 100;
+  return n + (s[(v - 20) % 10] || s[v] || s[0]);
+}
+
+/** A special day's banner with {age} filled in (birthdays with a birth year), for the given date. */
+export function occasionBanner(o: OccasionDef, now: Date): string | undefined {
+  const b = o.theme.banner;
+  if (!b) return b;
+  return o.sinceYear ? b.replace('{age}', ordinal(now.getFullYear() - o.sinceYear)) : b.replace('{age} ', '');
 }
 
 /** Validate whatever is in authored.json (hand edits, imports) into a safe shape. */
@@ -142,7 +159,13 @@ export function mergeOccasions(templates: OccasionDef[], a: AuthoredContent): Oc
   return templates.map((t) => {
     const o = a.occasions[t.id];
     if (!o) return t;
-    return { ...t, name: o.name || t.name.replace(/[⟦⟧]/g, ''), rule: o.rule ?? t.rule, enabled: o.enabled && !!o.rule, placeholder: !o.rule };
+    const merged: OccasionDef = { ...t, name: o.name || t.name.replace(/[⟦⟧]/g, ''), rule: o.rule ?? t.rule, enabled: o.enabled && !!o.rule, placeholder: !o.rule };
+    // With a birth year, birthday banners show the age.
+    if (o.year && (t.id === 'her-birthday' || t.id === 'his-birthday')) {
+      merged.sinceYear = o.year;
+      merged.theme = { ...t.theme, banner: t.id === 'her-birthday' ? 'Happy {age} Birthday, {her}!' : 'It’s {him}’s {age} birthday!' };
+    }
+    return merged;
   });
 }
 

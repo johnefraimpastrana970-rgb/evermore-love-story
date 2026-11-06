@@ -12,7 +12,6 @@ import { WorldScene } from './scenes/WorldScene';
 import { flow } from './flow';
 import { store } from './core/store';
 import { audio } from './audio/audio';
-import { cloud } from './backend/cloud';
 import { initToasts } from './ui/toast';
 import { initDialogue } from './ui/dialogue';
 import { initPanels } from './ui/panels';
@@ -62,7 +61,6 @@ async function boot() {
   initPets();
   initDev();
   audio.setVolumes(store.settings);
-  void cloud.init();
 
   // Unlock audio on first interaction anywhere (mobile requirement).
   const unlock = () => audio.unlock();

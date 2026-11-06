@@ -29,7 +29,8 @@ npm run build      # production build into dist/
 - **Secrets:** 6 hidden spots that sparkle when she walks close.
 - **Journal:** letters, daily messages, memories, photos, inside jokes, dates, real-life challenges, surprises, achievements (31) and secrets.
 - **Special days:** Valentine's, Christmas, New Year, Halloween, "Just Because", plus templates for your anniversary, birthdays and monthsary.
-- **Saves:** autosave + 3 slots, backup export/import, optional cloud sync.
+- **Saves:** autosave + 3 local slots, backup export/import. No account or internet connection is required to play.
+- **Messages:** scripted replies run locally; the game does not use online AI.
 - **Audio:** generative music per mood plus ambience and sound effects. Real tracks can replace any of it.
 
 ## Where things live
@@ -43,8 +44,6 @@ src/systems/      game rules (quests, progression, occasions, conditions)
 src/scenes/       Phaser scenes (World = reusable location template)
 src/art/          procedural painting (rooms, anime-style characters, icons)
 src/ui/           HTML overlay UI (HUD, dialogue, panels, mini-games, menus)
-src/backend/      optional Supabase cloud sync
-supabase/         database migration with RLS
 android/          Capacitor Android project
 ```
 

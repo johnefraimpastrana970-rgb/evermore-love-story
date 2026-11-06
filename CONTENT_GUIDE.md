@@ -48,8 +48,7 @@ Each entry looks like this:
 Put image files in `public/assets/photos/` and set `image: 'assets/photos/first-date.jpg'`.
 Photos marked as non-placeholder are also used in the Memory mini-game and Photo Puzzle.
 
-> **Privacy:** anything inside the app can be extracted from the APK. For truly private photos use
-> `image: 'cloud:folder/file.jpg'` with Supabase (see SUPABASE.md) — those are only downloadable after sign-in.
+> **Privacy:** photos bundled with the game can be extracted from the APK. Do not include photos you need to keep private.
 
 ### Inside-joke words for the chalkboard puzzle
 Add uppercase words to `CUSTOM_WORDS` at the bottom of `personal.ts`.

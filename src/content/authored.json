@@ -3,7 +3,34 @@
   "names": { "her": "", "him": "" },
   "hideTemplates": false,
   "entries": [],
-  "occasions": {},
+  "occasions": {
+    "anniversary": {
+      "enabled": true,
+      "name": "Our Anniversary",
+      "rule": { "type": "yearly", "month": 11, "day": 5, "durationDays": 1 },
+      "greeting": "Happy anniversary, {her} ♡\n\nAnother whole year of you and me. Thank you for choosing me, every single day.\n\nHere's to forever. I love you."
+    },
+    "monthsary": {
+      "enabled": true,
+      "name": "Our Monthsary",
+      "rule": { "type": "monthly", "day": 5 },
+      "greeting": "Happy monthsary, {her} ♡\n\nOne more month of us. You're still my favorite person in the whole world."
+    },
+    "her-birthday": {
+      "enabled": true,
+      "name": "Her Birthday",
+      "rule": { "type": "yearly", "month": 8, "day": 8, "durationDays": 1 },
+      "year": 2007,
+      "greeting": "Happy birthday, {her}! 🎂\n\nThe world got so much sweeter the day you were born. Today is all about you ♡\n\nMake a wish… I already got mine: you."
+    },
+    "his-birthday": {
+      "enabled": true,
+      "name": "His Birthday",
+      "rule": { "type": "yearly", "month": 1, "day": 13, "durationDays": 1 },
+      "year": 2007,
+      "greeting": "It's {him}'s birthday today! 🎂\n\nHappy birthday, {him} ♡ Thank you for being born… and for being mine."
+    }
+  },
   "words": [],
   "garden": {}
 }

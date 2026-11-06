@@ -7,15 +7,11 @@ import { GENERIC_REPLIES, QUICK_REPLIES } from '../../content/phone';
 import { addMessage, markThreadRead } from '../inbox';
 import type { PhoneMessage } from '../types';
 import { dayLabel, timeLabel } from './util';
-import { aiReply } from '../ai';
 
 const pick = <T,>(a: T[]) => a[Math.floor(Math.random() * a.length)];
 let typingUntil = 0;
 
-/**
- * The partner answers a message she sent: an AI reply when cloud is set up and she's signed in (see ../ai.ts),
- * otherwise (or if it fails / today's replies are used up) one of the scripted lines.
- */
+/** The partner answers locally with a scripted reply. */
 let answering: Promise<void> = Promise.resolve();
 function partnerAnswer(text: string) {
   // Replies arrive in order even if she sends a few messages quickly.
@@ -23,9 +19,8 @@ function partnerAnswer(text: string) {
     typingUntil = Date.now() + 60_000; // "typing…" until the reply is ready
     bus.emit('phone:typing');
     const started = Date.now();
-    const ai = await aiReply().catch(() => null);
     const q = QUICK_REPLIES.find((r) => r.text === text);
-    const reply = ai ?? store.fmt(pick(q ? q.replies : GENERIC_REPLIES));
+    const reply = store.fmt(pick(q ? q.replies : GENERIC_REPLIES));
     // Feel like a person typing: at least a moment, longer for longer messages.
     const wait = Math.max(0, 900 + Math.min(2200, reply.length * 40) - (Date.now() - started));
     await new Promise((r) => setTimeout(r, wait));
