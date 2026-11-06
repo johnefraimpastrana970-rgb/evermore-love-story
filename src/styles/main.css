@@ -88,6 +88,17 @@ code { font-size: .85em; background: rgba(232, 87, 125, .1); padding: 1px 6px; b
 .mbtn.primary { background: linear-gradient(#ff8fb0, #e8577d); border-color: transparent; box-shadow: 0 8px 30px rgba(232, 87, 125, .5); }
 .menu-vol { display: flex; gap: 10px; align-items: center; color: #ffd6e2; animation: rise 1.2s .5s both; }
 .menu-foot { position: absolute; bottom: calc(10px + var(--safe-b)); color: rgba(255, 214, 226, .6); font-family: var(--hand); font-size: 20px; }
+/* The two of them, in the empty space to the right of the menu (title screen only). */
+.title-couple {
+  position: absolute; bottom: 0; left: calc(50% + 190px); width: calc(50% - 198px - var(--safe-r)); height: min(88vh, 1000px); object-fit: contain; object-position: center bottom;
+  pointer-events: none; user-select: none; filter: drop-shadow(0 0 22px rgba(255, 143, 176, .45)) drop-shadow(0 12px 30px rgba(20, 0, 30, .45));
+  transform-origin: 50% 100%; animation: coupleIn 1.4s .2s cubic-bezier(.2, .9, .3, 1) both, coupleSway 6s 1.6s ease-in-out infinite;
+}
+@keyframes coupleIn { from { opacity: 0; transform: translateY(40px) scale(.97); } to { opacity: 1; transform: none; } }
+@keyframes coupleSway { 50% { transform: translateY(-6px) rotate(-.6deg); } }
+@media (max-height: 520px) { .title-couple { object-position: right bottom; } }
+@media (max-width: 700px) { .title-couple { display: none; } }
+@media (prefers-reduced-motion: reduce) { .title-couple { animation: coupleIn .01s both; } }
 .menu-card { width: min(440px, 92vw); max-height: 88vh; overflow: auto; }
 .menu-card label { display: block; font-weight: 600; margin: 12px 0; color: var(--ink-soft); }
 .menu-card input { display: block; width: 100%; margin-top: 6px; padding: 12px 16px; font-size: 18px; border-radius: 14px; border: 2px solid #f0d4de; background: #fff; color: var(--ink); }

@@ -40,6 +40,7 @@ export function showMenu(): Promise<MenuResult> {
           <button class="mbtn" data-a="about">About</button>
         </div>
         <div class="menu-vol"><span>♪</span><input type="range" min="0" max="1" step="0.05" value="${store.settings.master}" aria-label="Volume"></div>
+        <img class="title-couple" src="assets/art/title-couple.webp" alt="" decoding="async">
         <div class="menu-foot">Made with love · no last level, no final page</div>`;
       menu.querySelector('[data-a=continue]')?.addEventListener('click', () => { click(); resolve({ kind: 'load', slot: latest! }); });
       menu.querySelector('[data-a=new]')!.addEventListener('click', () => { click(); newStory(); });
