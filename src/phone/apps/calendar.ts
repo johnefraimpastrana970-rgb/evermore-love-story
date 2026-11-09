@@ -3,7 +3,7 @@ import { store } from '../../core/store';
 import { bus } from '../../core/events';
 import { esc } from '../../ui/dom';
 import { OCCASIONS } from '../../content/occasions';
-import { ruleMatches } from '../../systems/occasions';
+import { activeOccasions } from '../../systems/occasions';
 import { uid, type Reminder, type Repeat } from '../types';
 import { deviceTz, isValidReminder, nextOccurrence, occurrences, REPEAT_LABEL } from '../scheduler/rules';
 import { changed, confirmSheet, dayLabel, timeLabel } from './util';
@@ -41,8 +41,7 @@ setNextReminderLabel(() => {
 
 /** Occasions (from content/occasions.ts) that fall on a date. Disabled templates are skipped. */
 function occasionsOn(date: Date) {
-  const forced = store.settings.manualOccasions;
-  return OCCASIONS.filter((o) => (o.enabled && !o.placeholder && o.rule.type !== 'manual' && ruleMatches(o.rule, date)) || (forced.includes(o.id) && ymd(date) === ymd(new Date())));
+  return activeOccasions(OCCASIONS, date);
 }
 
 registerApp({

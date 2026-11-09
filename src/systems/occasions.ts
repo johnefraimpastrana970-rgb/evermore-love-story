@@ -1,4 +1,5 @@
 import type { OccasionDef, OccasionRule } from '../content/types';
+import { rng } from '../core/rng';
 
 function mmdd(d: Date) {
   return (d.getMonth() + 1) * 100 + d.getDate();
@@ -50,10 +51,66 @@ export function ruleMatches(rule: OccasionRule, date: Date): boolean {
   }
 }
 
-/** Active occasions, highest priority first. */
-export function activeOccasions(defs: OccasionDef[], date: Date, manual: string[] = []): OccasionDef[] {
+/** Active occasions for the device's real local date, highest priority first. */
+export function activeOccasions(defs: OccasionDef[], date: Date): OccasionDef[] {
   return defs
-    // Manual toggles force an occasion on (useful to preview a disabled template).
-    .filter((o) => manual.includes(o.id) || (o.enabled && ruleMatches(o.rule, date)))
+    .filter((o) => o.enabled && !o.placeholder && ruleMatches(o.rule, date))
     .sort((a, b) => b.priority - a.priority);
+}
+
+const THEME_VARIANTS: Record<string, OccasionDef['theme'][]> = {
+  valentines: [
+    { tint: 0xffc8d8, decorations: ['hearts', 'petals', 'lights'], music: 'festive' },
+    { tint: 0xffd9c8, decorations: ['hearts', 'balloons'], music: 'cozy' },
+    { tint: 0xe9d2ff, decorations: ['petals', 'lights'], music: 'outdoor' },
+  ],
+  christmas: [
+    { tint: 0xd8ecff, decorations: ['snow', 'lights'], music: 'festive' },
+    { tint: 0xd8f0df, decorations: ['snow', 'lights'], music: 'cozy' },
+    { tint: 0xffe6c9, decorations: ['lights', 'snow'], music: 'night' },
+  ],
+  newyear: [
+    { tint: 0xfff2d0, decorations: ['confetti', 'lights'], music: 'festive' },
+    { tint: 0xd6e8ff, decorations: ['confetti', 'balloons'], music: 'outdoor' },
+    { tint: 0xf9d6ec, decorations: ['confetti', 'lights', 'hearts'], music: 'cozy' },
+  ],
+  halloween: [
+    { tint: 0xffd6b0, decorations: ['pumpkins', 'lights'], music: 'night' },
+    { tint: 0xe8d9ff, decorations: ['pumpkins', 'confetti'], music: 'outdoor' },
+    { tint: 0xf2e5bf, decorations: ['pumpkins', 'lights'], music: 'cozy' },
+  ],
+  'just-because': [
+    { tint: 0xffe6f0, decorations: ['hearts', 'balloons'], music: 'festive' },
+    { tint: 0xe1f4ff, decorations: ['petals', 'lights'], music: 'outdoor' },
+    { tint: 0xfff0cf, decorations: ['hearts', 'confetti'], music: 'cozy' },
+  ],
+  anniversary: [
+    { tint: 0xffd0e0, decorations: ['hearts', 'lights', 'petals'], music: 'festive' },
+    { tint: 0xf4d8ff, decorations: ['hearts', 'balloons'], music: 'cozy' },
+    { tint: 0xffe6c9, decorations: ['petals', 'lights'], music: 'outdoor' },
+  ],
+  'her-birthday': [
+    { tint: 0xfff0c8, decorations: ['balloons', 'confetti', 'lights'], music: 'festive' },
+    { tint: 0xf9d9ff, decorations: ['balloons', 'hearts'], music: 'cozy' },
+    { tint: 0xd8efff, decorations: ['confetti', 'lights'], music: 'outdoor' },
+  ],
+  'his-birthday': [
+    { tint: 0xd8e8ff, decorations: ['balloons', 'confetti'], music: 'festive' },
+    { tint: 0xd8f0df, decorations: ['balloons', 'lights'], music: 'outdoor' },
+    { tint: 0xffe6c9, decorations: ['confetti', 'hearts'], music: 'cozy' },
+  ],
+  monthsary: [
+    { tint: 0xffe0ea, decorations: ['hearts', 'petals'], music: 'festive' },
+    { tint: 0xe1f4ff, decorations: ['hearts', 'lights'], music: 'cozy' },
+    { tint: 0xfff0cf, decorations: ['petals', 'balloons'], music: 'outdoor' },
+  ],
+};
+
+/** Pick one stable, locally varied atmosphere for this occasion and calendar day. */
+export function occasionThemeForDay(occasion: OccasionDef, date: Date): OccasionDef['theme'] {
+  const variants = THEME_VARIANTS[occasion.id];
+  if (!variants?.length) return occasion.theme;
+  const key = `${occasion.id}:${date.getFullYear()}-${date.getMonth() + 1}-${date.getDate()}`;
+  const variant = rng(key).pick(variants);
+  return { ...occasion.theme, ...variant, banner: occasion.theme.banner };
 }

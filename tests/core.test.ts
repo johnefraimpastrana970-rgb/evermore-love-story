@@ -1,10 +1,10 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { xpToNext, addXp, titleFor } from '../src/systems/progression';
-import { ruleMatches, activeOccasions } from '../src/systems/occasions';
+import { ruleMatches, activeOccasions, occasionThemeForDay } from '../src/systems/occasions';
 import { startQuest, notifyQuests, refreshGenerated, questDef, isComplete } from '../src/systems/quests';
 import { checkCondition, pickVariant, CondCtx } from '../src/systems/conditions';
 import { defaultState, migrate, SAVE_VERSION } from '../src/core/state';
-import { useStorage, writeSlot, readSlot, exportSave, importSave, latestSlot, KV } from '../src/core/save';
+import { useStorage, writeSlot, readSlot, exportSave, importSave, latestSlot, loadSettings, KV } from '../src/core/save';
 import { weekKey, daysBetween, timeOfDayForHour } from '../src/core/time';
 import { OCCASIONS, OCCASION_TEMPLATES } from '../src/content/occasions';
 import { LOCATIONS } from '../src/content/locations';
@@ -87,15 +87,33 @@ describe('occasions', () => {
     expect(ruleMatches({ type: 'fixed', date: '2027-06-01' }, d(2027, 6, 1))).toBe(true);
     expect(ruleMatches({ type: 'fixed', date: '2027-06-01' }, d(2028, 6, 1))).toBe(false);
   });
-  it('personal templates stay off until enabled, but preview forces them', () => {
+  it('personal templates stay off until enabled and their real date arrives', () => {
     const jan1 = d(2027, 1, 1);
-    // Templates (before anything is set in the Author tool).
     expect(activeOccasions(OCCASION_TEMPLATES, jan1).map((o) => o.id)).not.toContain('anniversary');
-    expect(activeOccasions(OCCASION_TEMPLATES, jan1, ['anniversary']).map((o) => o.id)).toContain('anniversary');
+    const anniversary = { ...OCCASION_TEMPLATES[0], enabled: true, placeholder: false };
+    expect(activeOccasions([anniversary], jan1)).toContain(anniversary);
+    expect(activeOccasions([anniversary], d(2027, 1, 2))).toHaveLength(0);
   });
   it('sorted by priority', () => {
-    const list = activeOccasions(OCCASIONS, d(2026, 12, 31), ['just-because']);
+    const list = activeOccasions(OCCASIONS, d(2026, 12, 31));
     expect(list[0].id).toBe('newyear');
+  });
+  it('activates Valentine’s only on the real local calendar date', () => {
+    expect(activeOccasions(OCCASIONS, d(2027, 2, 13)).map((o) => o.id)).not.toContain('valentines');
+    expect(activeOccasions(OCCASIONS, d(2027, 2, 14)).map((o) => o.id)).toContain('valentines');
+    expect(activeOccasions(OCCASIONS, d(2027, 2, 15)).map((o) => o.id)).not.toContain('valentines');
+  });
+  it('activates Halloween on October 31 only', () => {
+    expect(activeOccasions(OCCASIONS, d(2027, 10, 30)).map((o) => o.id)).not.toContain('halloween');
+    expect(activeOccasions(OCCASIONS, d(2027, 10, 31)).map((o) => o.id)).toContain('halloween');
+  });
+  it('keeps a randomized special-day atmosphere stable for that date', () => {
+    const valentine = OCCASIONS.find((o) => o.id === 'valentines')!;
+    const day = d(2027, 2, 14);
+    expect(occasionThemeForDay(valentine, day)).toEqual(occasionThemeForDay(valentine, day));
+    const themes = new Set(Array.from({ length: 10 }, (_, i) =>
+      JSON.stringify(occasionThemeForDay(valentine, d(2027, 2, 14 + i)).decorations)));
+    expect(themes.size).toBeGreaterThan(1);
   });
 });
 
@@ -174,6 +192,14 @@ describe('saves', () => {
     const kv: KV = { getItem: (k) => mem.get(k) ?? null, setItem: (k, v) => void mem.set(k, v), removeItem: (k) => void mem.delete(k) };
     useStorage(kv);
   });
+  it('ignores legacy pretend-date and manual-occasion settings', () => {
+    mem.set('evermore.settings', JSON.stringify({ debugDate: '2000-01-01', manualOccasions: ['valentines'], music: 0.4 }));
+    const settings = loadSettings();
+    expect(settings.music).toBe(0.4);
+    expect(settings).not.toHaveProperty('debugDate');
+    expect(settings).not.toHaveProperty('manualOccasions');
+    expect(JSON.parse(mem.get('evermore.settings')!)).not.toHaveProperty('debugDate');
+  });
   it('round-trips and picks latest slot', () => {
     const s = defaultState('Her', 'Him');
     s.level = 7;
@@ -215,6 +241,15 @@ describe('saves', () => {
 });
 
 describe('time', () => {
+  it('uses the device-local calendar date as the real day', () => {
+    const previous = store.clock;
+    store.clock = () => new Date(2027, 1, 14, 23, 59);
+    try {
+      expect(store.today()).toBe('2027-02-14');
+    } finally {
+      store.clock = previous;
+    }
+  });
   it('week keys and day maths', () => {
     expect(weekKey(d(2027, 1, 4))).toBe('2027-W01');
     expect(daysBetween('2027-01-31', '2027-02-01')).toBe(1);
@@ -233,6 +268,10 @@ describe('content integrity', () => {
         expect(h.x + h.w).toBeLessThanOrEqual(loc.width + 1);
       }
     }
+    expect(LOCATIONS.kitchen.hotspots.find((h) => h.id === 'kitchen-table-meal')?.action).toEqual({ kind: 'need', action: 'eat' });
+    expect(LOCATIONS.kitchen.hotspots.find((h) => h.id === 'kitchen-table')?.action.kind).toBe('dialogue');
+    expect(LOCATIONS.bathroom.hotspots.some((h) => h.action.kind === 'need' && h.action.action === 'shower')).toBe(true);
+    expect(LOCATIONS.comfortroom.hotspots.some((h) => h.action.kind === 'need' && h.action.action === 'toilet')).toBe(true);
   });
   it('dialogue next links resolve', () => {
     const special = new Set(['__chat', '__hug', '__joke', '__tease', '__deep']);

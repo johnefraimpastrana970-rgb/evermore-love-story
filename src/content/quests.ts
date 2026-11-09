@@ -115,22 +115,24 @@ export const STORY_QUESTS: QuestDef[] = [
 type R = { int: (a: number, b: number) => number; pick: <T>(a: readonly T[]) => T };
 
 const LOC_NAMES: Record<LocationId, string> = {
-  bedroom: 'the bedroom', livingroom: 'the living room', kitchen: 'the kitchen', backyard: 'the backyard', school: 'school',
+  bedroom: 'the bedroom', livingroom: 'the living room', kitchen: 'the kitchen', bathroom: 'the bathroom',
+  comfortroom: 'the comfort room', backyard: 'the backyard', school: 'school',
 };
 const KIND_NAMES: Record<CollectibleKind, string> = {
   heart: 'heart charms', petal: 'petals', star: 'star shards', note: 'folded notes', sparkle: 'sparkles',
 };
 const MG_NAMES: Record<MinigameId, string> = {
   memory: 'Keepsake Memory (bedroom)', cooking: 'Cooking Together (kitchen)', stars: 'Stargazing (backyard, night)',
+  'grill-flip': 'Grill Flip Challenge (backyard)', 'skewer-memory': 'Colorful Skewer (backyard)',
   scramble: 'Chalkboard Words (school)', slider: 'Photo Puzzle (living room)',
 };
 
 const DAILY_TITLES = ['Sweet Errand', 'Little Adventure', 'Cozy Task', 'Heart Hunt', 'Daily Spark', 'Tiny Mission'];
 
 export function dailyTemplates(r: R): ObjectiveDef[] {
-  const loc = r.pick(['bedroom', 'livingroom', 'kitchen', 'backyard', 'school'] as LocationId[]);
+  const loc = r.pick(['bedroom', 'livingroom', 'kitchen', 'bathroom', 'comfortroom', 'backyard', 'school'] as LocationId[]);
   const kind = r.pick(['heart', 'petal', 'star', 'note'] as CollectibleKind[]);
-  const mg = r.pick(['memory', 'cooking', 'scramble', 'slider'] as MinigameId[]);
+  const mg = r.pick(['memory', 'cooking', 'grill-flip', 'skewer-memory', 'scramble', 'slider'] as MinigameId[]);
   return [
     { type: 'collect', kind: 'any', count: r.int(4, 8), location: loc, label: `Collect charms in ${LOC_NAMES[loc]}` },
     { type: 'collect', kind, count: r.int(2, 4), label: `Collect ${KIND_NAMES[kind]}` },
@@ -157,7 +159,7 @@ export function makeDaily(r: R, day: string, index: number): QuestDef {
 }
 
 export function makeWeekly(r: R, week: string): QuestDef {
-  const mgs = ['memory', 'cooking', 'stars', 'scramble', 'slider'] as MinigameId[];
+  const mgs = ['memory', 'cooking', 'grill-flip', 'skewer-memory', 'stars', 'scramble', 'slider'] as MinigameId[];
   const mg = r.pick(mgs);
   return {
     id: `weekly-${week}`,

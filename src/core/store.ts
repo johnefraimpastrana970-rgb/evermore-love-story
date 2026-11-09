@@ -2,7 +2,7 @@ import type { TimeOfDay } from '../content/types';
 import { bus } from './events';
 import { GameState, Settings } from './state';
 import { loadSettings, saveSettings, writeSlot, SlotId } from './save';
-import { dayKey, parseDay, timeOfDayForHour } from './time';
+import { dayKey, timeOfDayForHour } from './time';
 import { other, swapGender, Who } from './roles';
 
 /** Global runtime store. One active game at a time. */
@@ -33,13 +33,9 @@ class Store {
     this._state = null;
   }
 
-  /** "Now", respecting the debug date (keeps the real clock time). */
+  /** Current device-local date and time. */
   now(): Date {
-    const real = this.clock();
-    const dbg = this.settings.debugDate ? parseDay(this.settings.debugDate) : null;
-    if (!dbg) return real;
-    dbg.setHours(real.getHours(), real.getMinutes(), real.getSeconds());
-    return dbg;
+    return this.clock();
   }
   today(): string {
     return dayKey(this.now());

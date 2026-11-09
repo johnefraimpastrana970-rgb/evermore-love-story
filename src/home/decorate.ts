@@ -11,6 +11,7 @@ import { COLORS, FLOORS, FURNITURE_SLOTS, ITEMS, MAX_ITEMS_PER_ROOM, VIBES, WALL
 import { applyVibe, buy, owns, place, setColor, setFloor, setWall, spare, store as storeItem } from './logic';
 import { itemPreview } from './draw';
 import type { WallStyle } from '../art/paint';
+import { captureHomeMemory } from './memories';
 
 /*
  * Decorating: a sheet at the bottom of the screen, so the room stays visible and every change shows right away.
@@ -27,7 +28,11 @@ function wallSwatch(s: WallStyle): string {
     : s.pattern === 'dots' ? `radial-gradient(circle, ${a} 2px, transparent 3px) 0 0/12px 12px, ${b}`
     : s.pattern === 'hearts' ? `radial-gradient(circle, ${a} 3px, transparent 4px) 0 0/16px 16px, ${b}`
     : s.pattern === 'tiles' ? `linear-gradient(${a}55 1px, transparent 1px) 0 0/14px 14px, linear-gradient(90deg, ${a}55 1px, transparent 1px) 0 0/14px 14px, ${b}`
-    : s.pattern === 'panel' ? `repeating-linear-gradient(90deg, ${b} 0 18px, ${a} 18px 20px)` : b;
+    : s.pattern === 'panel' ? `repeating-linear-gradient(90deg, ${b} 0 18px, ${a} 18px 20px)`
+    : s.pattern === 'floral' ? `radial-gradient(circle at 50% 30%, ${a} 2px, transparent 3px) 0 0/20px 20px, radial-gradient(circle at 30% 50%, ${a}99 3px, transparent 4px) 0 0/20px 20px, ${b}`
+    : s.pattern === 'scallop' ? `radial-gradient(ellipse at 50% 100%, transparent 58%, ${a}99 60% 64%, transparent 66%) 0 0/24px 18px, ${b}`
+    : s.pattern === 'checker' ? `conic-gradient(${a}55 25%, transparent 0 50%, ${a}55 0 75%, transparent 0) 0 0/22px 22px, ${b}`
+    : s.pattern === 'stars' ? `radial-gradient(circle, ${a} 2px, transparent 3px) 0 0/20px 20px, radial-gradient(circle, ${a}99 1px, transparent 2px) 10px 10px/20px 20px, ${b}` : b;
   return pat;
 }
 
@@ -55,7 +60,12 @@ export function openDecorate(): Promise<void> {
     requestAnimationFrame(() => root.classList.add('in'));
     const body = root.querySelector('.hm-body') as HTMLElement;
 
-    const changed = (look = true) => { store.save(); bus.emit(look ? 'home:changed' : 'home:items'); render(); };
+    const changed = (look = true) => {
+      if (room === 'bedroom') captureHomeMemory('first-bedroom-decor');
+      store.save();
+      bus.emit(look ? 'home:changed' : 'home:items');
+      render();
+    };
     const tryBuy = (id: string, price: number, then: () => void) => {
       if (owns(h, id) && !itemDef(id)) { then(); return; }
       if (!buy(h, s, id)) { audio.sfx('error'); toast(`You need ${price} heart tokens`, 'heart'); return; }
@@ -110,7 +120,7 @@ export function openDecorate(): Promise<void> {
           <div class="hm-row">${ITEMS.map((it) => {
             const n = spare(h, it.id);
             return `<div class="hm-card item"><img src="${itemPreview(it.id)}" alt=""><b>${esc(it.name)}</b>
-              <small>${it.use === 'bed' ? 'Pets nap here' : it.use === 'perch' ? 'Cats climb it' : it.use === 'toy' ? 'Pets play here' : 'Decoration'}</small>
+              <small>${it.use === 'bed' ? 'Pet nap spot' : it.use === 'perch' ? 'Climb & perch' : it.use === 'toy' ? 'Pet play spot' : 'Room furniture'}</small>
               <span class="hm-btns">${n > 0 ? `<button class="pz-btn small" data-place="${it.id}" ${here >= MAX_ITEMS_PER_ROOM ? 'disabled' : ''}>Place (${n})</button>` : ''}
               <button class="pz-btn small ${n > 0 ? 'ghost' : ''}" data-buy="${it.id}">${tok(it.price)}</button></span></div>`;
           }).join('')}</div>`;

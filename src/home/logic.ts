@@ -10,10 +10,25 @@ import type { PaintLook } from '../art/rooms';
  */
 
 export interface PlacedItem { id: string; item: string; room: HouseRoom; x: number; y: number }
+export const HOME_MEMORY_DEFS = {
+  'first-dinner': { title: 'Our first cozy meal', caption: 'A little meal together at the kitchen table.', room: 'kitchen' },
+  'first-bedroom-decor': { title: 'Making our bedroom ours', caption: 'We made our bedroom feel a little more like home.', room: 'bedroom' },
+  'first-pet-play': { title: 'A playdate at home', caption: 'We made time for a little play together.', room: 'livingroom' },
+} as const;
+export type HomeMemoryId = keyof typeof HOME_MEMORY_DEFS;
+export interface HomeMemory {
+  id: HomeMemoryId;
+  title: string;
+  caption: string;
+  room: HouseRoom;
+  at: number;
+}
+
 export interface HomeState {
   owned: string[];
   rooms: Record<HouseRoom, RoomLook>;
   items: PlacedItem[];
+  memories: HomeMemory[];
 }
 
 const FREE = [...WALLS, ...FLOORS, ...COLORS, ...VIBES].filter((x) => x.price === 0).map((x) => x.id);
@@ -21,11 +36,12 @@ let seq = 0;
 const uid = () => `it${Date.now().toString(36)}${(seq++).toString(36)}`;
 
 export function defaultHome(): HomeState {
-  return { owned: [...FREE], rooms: JSON.parse(JSON.stringify(DEFAULT_LOOK)), items: [] };
+  return { owned: [...FREE], rooms: JSON.parse(JSON.stringify(DEFAULT_LOOK)), items: [], memories: [] };
 }
 
 const isObj = (v: unknown): v is Record<string, unknown> => typeof v === 'object' && v !== null && !Array.isArray(v);
 const known = (id: string) => [...WALLS, ...FLOORS, ...COLORS, ...VIBES, ...ITEMS].some((x) => x.id === id);
+const memoryIds = Object.keys(HOME_MEMORY_DEFS) as HomeMemoryId[];
 
 export function repairHome(h: HomeState) {
   h.owned = Array.isArray(h.owned) ? [...new Set(h.owned.filter((x) => typeof x === 'string' && known(x)))] : [];
@@ -45,6 +61,23 @@ export function repairHome(h: HomeState) {
   h.rooms = out;
   h.items = (Array.isArray(h.items) ? h.items : []).filter((i): i is PlacedItem => isObj(i) && typeof i.id === 'string' && !!itemDef(String(i.item))
     && HOUSE_ROOMS.includes(i.room as HouseRoom) && Number.isFinite(i.x) && Number.isFinite(i.y));
+  const seen = new Set<HomeMemoryId>();
+  h.memories = (Array.isArray(h.memories) ? h.memories : []).filter((m) =>
+    isObj(m) && typeof m.id === 'string' && memoryIds.includes(m.id as HomeMemoryId) && Number.isFinite(m.at) && !seen.has(m.id as HomeMemoryId)
+      && !!seen.add(m.id as HomeMemoryId),
+  ).map((m) => {
+    const id = m.id as HomeMemoryId;
+    const def = HOME_MEMORY_DEFS[id];
+    return { id, title: def.title, caption: typeof m.caption === 'string' ? m.caption.slice(0, 160) : def.caption, room: def.room, at: m.at as number };
+  });
+}
+
+export function remember(h: HomeState, id: HomeMemoryId, at = Date.now()): HomeMemory | null {
+  if (h.memories.some((m) => m.id === id)) return null;
+  const def = HOME_MEMORY_DEFS[id];
+  const memory: HomeMemory = { id, ...def, at };
+  h.memories.push(memory);
+  return memory;
 }
 
 export const owns = (h: HomeState, id: string) => h.owned.includes(id);

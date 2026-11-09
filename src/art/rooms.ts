@@ -245,10 +245,8 @@ const livingroom: RoomPainter = {
     // Archway & front door
     drawDoor(ctx, 1620, 180, 140, 320, 0, { arch: true });
     ctx.fillStyle = 'rgba(255,255,255,0.4)'; ctx.fillRect(1650, 300, 60, 6);
+    drawDoor(ctx, 1745, 180, 85, 320, 0xe8d4bc);
     drawDoor(ctx, 1840, 180, 110, 320, 0x9a5a4a, { glass: true });
-    // coat hooks
-    ctx.fillStyle = '#b48a5a'; ctx.fillRect(1790, 230, 36, 6);
-    ellipse(ctx, 1800, 250, 10, 22, '#e88aa8'); ellipse(ctx, 1818, 255, 9, 26, '#6a8fd4');
   },
 };
 
@@ -370,6 +368,72 @@ const kitchen: RoomPainter = {
     ellipse(ctx, 1281, 352, 9, 9, '#ff7f9f');
 
     drawDoor(ctx, 1450, 180, 110, 320, 0x7fae9a, { glass: true });
+  },
+};
+
+// ====================================================================== BATHROOM
+const bathroom: RoomPainter = {
+  bg(ctx, time) {
+    drawWall(ctx, 1280, FLOOR_Y, { base: 0xe7f7f5, accent: 0x82c9c4, pattern: 'checker', wainscot: 0xd8efeb });
+    drawFloor(ctx, 1280, FLOOR_Y, 220, 'tile', 0xaddbd7);
+    drawDoor(ctx, 35, 170, 130, 330, 0xf3e3d3);
+    drawWindow(ctx, 220, 95, 220, 190, time, { curtain: 0x9bd8d1, seed: 'bathwin' });
+    floorShadow(ctx, 490, 500, 300, 0.2);
+    fillRR(ctx, 340, 340, 285, 155, 16, '#9bceca');
+    fillRR(ctx, 325, 325, 315, 25, 12, '#fffdf8');
+    fillRR(ctx, 380, 160, 205, 150, 36, '#a8cfce');
+    fillRR(ctx, 391, 171, 183, 128, 28, vgrad(ctx, 171, 299, [[0, 0xd9f4f3], [1, 0xa9d7e3]]));
+    ctx.strokeStyle = '#fff'; ctx.lineWidth = 6; ctx.beginPath(); ctx.moveTo(420, 294); ctx.lineTo(545, 294); ctx.stroke();
+    fillRR(ctx, 455, 315, 80, 14, 7, '#c6e7e2');
+    fillRR(ctx, 390, 390, 190, 38, 12, '#fff8f4');
+    fillRR(ctx, 395, 400, 180, 34, 10, '#ffc7d7');
+    fillRR(ctx, 395, 433, 180, 32, 10, '#fff8f4');
+    floorShadow(ctx, 920, 500, 300, 0.22);
+    fillRR(ctx, 760, 205, 300, 295, 15, '#c5e8e6');
+    fillRR(ctx, 774, 219, 270, 281, 10, vgrad(ctx, 219, 500, [[0, 0xe4f6f3], [1, 0xb7dcda]]));
+    ctx.fillStyle = 'rgba(255,255,255,0.56)'; ctx.fillRect(785, 230, 242, 260);
+    ctx.strokeStyle = '#fff'; ctx.lineWidth = 9; ctx.strokeRect(760, 205, 300, 295);
+    ctx.strokeStyle = '#8ebcba'; ctx.lineWidth = 5; ctx.beginPath(); ctx.moveTo(950, 210); ctx.lineTo(950, 495); ctx.stroke();
+    ctx.strokeStyle = '#91bdbb'; ctx.lineWidth = 8; ctx.beginPath(); ctx.moveTo(812, 244); ctx.lineTo(812, 276); ctx.lineTo(837, 276); ctx.stroke();
+    ctx.strokeStyle = '#91bdbb'; ctx.lineWidth = 5; ctx.beginPath(); ctx.arc(843, 284, 17, 0.05, Math.PI - 0.05); ctx.stroke();
+    for (let i = 0; i < 7; i++) {
+      ctx.strokeStyle = 'rgba(91,177,200,0.75)'; ctx.lineWidth = 3;
+      ctx.beginPath(); ctx.moveTo(828 + i * 5, 292); ctx.lineTo(819 + i * 5, 325 + (i % 3) * 8); ctx.stroke();
+    }
+    fillRR(ctx, 1085, 245, 100, 235, 8, '#d6ebe7');
+    fillRR(ctx, 1100, 260, 70, 50, 8, '#fff8f4');
+    fillRR(ctx, 1100, 330, 70, 50, 8, '#f4b4c6');
+    drawDoor(ctx, 1090, 170, 150, 330, 0xf3e3d3);
+    drawPlant(ctx, 690, 500, 0.64, 0x91c9a0);
+    drawRug(ctx, 500, 610, 245, 45, 0xf4c5d3, 0xffffff);
+  },
+};
+
+const comfortroom: RoomPainter = {
+  bg(ctx, time) {
+    drawWall(ctx, 1280, FLOOR_Y, { base: 0xf9e9ef, accent: 0xe7a6bb, pattern: 'dots', wainscot: 0xf6dfe7 });
+    drawFloor(ctx, 1280, FLOOR_Y, 220, 'tile', 0xe9cad4);
+    drawDoor(ctx, 35, 170, 130, 330, 0xf3e3d3);
+    drawWindow(ctx, 220, 100, 190, 170, time, { curtain: 0xf1b6c8, seed: 'restwin' });
+    floorShadow(ctx, 680, 500, 265, 0.23);
+    fillRR(ctx, 550, 265, 260, 240, 16, '#e8b6c7');
+    fillRR(ctx, 564, 280, 232, 210, 12, vgrad(ctx, 280, 490, [[0, 0xfff9f8], [1, 0xe7e2ea]]));
+    fillRR(ctx, 610, 325, 160, 72, 26, '#fffaf8');
+    ellipse(ctx, 690, 399, 75, 43, '#fffaf8');
+    ellipse(ctx, 690, 400, 50, 25, '#b8dfe2');
+    ctx.strokeStyle = '#d7cbd4'; ctx.lineWidth = 5; ctx.beginPath(); ctx.ellipse(690, 400, 50, 25, 0, 0, Math.PI * 2); ctx.stroke();
+    fillRR(ctx, 605, 448, 170, 36, 16, '#e6dbe2');
+    floorShadow(ctx, 1010, 500, 250, 0.18);
+    fillRR(ctx, 925, 360, 170, 130, 12, '#cb9fb0');
+    fillRR(ctx, 906, 344, 208, 25, 10, '#fffaf8');
+    ellipse(ctx, 1010, 320, 86, 69, '#fffaf8');
+    ellipse(ctx, 1010, 320, 75, 58, '#b9dbe0');
+    ctx.strokeStyle = '#fff'; ctx.lineWidth = 8; ctx.beginPath(); ctx.moveTo(950, 410); ctx.lineTo(1070, 410); ctx.stroke();
+    fillRR(ctx, 965, 382, 90, 15, 7, '#c7e4df');
+    ctx.fillStyle = '#e8577d'; heartPath(ctx, 1010, 214, 27); ctx.fill();
+    drawDoor(ctx, 1090, 170, 150, 330, 0xf3e3d3);
+    drawRug(ctx, 800, 620, 250, 42, 0xffdce6, 0xffffff);
+    drawPlant(ctx, 440, 500, 0.55, 0xf1b6c8);
   },
 };
 
@@ -644,4 +708,4 @@ const school: RoomPainter = {
   },
 };
 
-export const ROOMS: Record<LocationId, RoomPainter> = { bedroom, livingroom, kitchen, backyard, school };
+export const ROOMS: Record<LocationId, RoomPainter> = { bedroom, livingroom, kitchen, bathroom, comfortroom, backyard, school };

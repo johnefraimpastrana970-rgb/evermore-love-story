@@ -20,6 +20,12 @@ export const WALLS: WallDef[] = [
   { id: 'wall-butter', name: 'Butter yellow', style: { base: 0xfff6d6, accent: 0xf2d482, pattern: 'tiles' }, price: 35 },
   { id: 'wall-midnight', name: 'Midnight stars', style: { base: 0x3a3a66, accent: 0x5a5a96, pattern: 'dots', wainscot: 0x2e2e52 }, price: 60 },
   { id: 'wall-panel', name: 'Wood panels', style: { base: 0xe8d4bc, accent: 0xc8a882, pattern: 'panel' }, price: 50 },
+  { id: 'wall-meadow', name: 'Meadow florals', style: { base: 0xfff0e2, accent: 0xd989a3, pattern: 'floral', wainscot: 0xf8e2d4 }, price: 55 },
+  { id: 'wall-seashell', name: 'Seashell scallop', style: { base: 0xe5f5f4, accent: 0x74b9b3, pattern: 'scallop', wainscot: 0xf2fbf8 }, price: 55 },
+  { id: 'wall-blue-check', name: 'Blue gingham', style: { base: 0xeaf2ff, accent: 0x89aade, pattern: 'checker', wainscot: 0xf5f7ff }, price: 50 },
+  { id: 'wall-stardust', name: 'Stardust', style: { base: 0x333653, accent: 0xf0d58b, pattern: 'stars', wainscot: 0x45496e }, price: 65 },
+  { id: 'wall-peach-arches', name: 'Peach arches', style: { base: 0xffe7d8, accent: 0xd88e78, pattern: 'scallop', wainscot: 0xfff5e9 }, price: 50 },
+  { id: 'wall-sage-floral', name: 'Sage garden', style: { base: 0xe7efdf, accent: 0x78966d, pattern: 'floral', wainscot: 0xf5f2e7 }, price: 55 },
 ];
 
 export interface FloorDef { id: string; name: string; kind: 'wood' | 'tile' | 'carpet'; color: number; price: number }
@@ -32,6 +38,10 @@ export const FLOORS: FloorDef[] = [
   { id: 'floor-mint-tile', name: 'Mint tiles', kind: 'tile', color: 0xbfe6d6, price: 40 },
   { id: 'floor-lilac-carpet', name: 'Lilac carpet', kind: 'carpet', color: 0xd4c4ee, price: 45 },
   { id: 'floor-dark-wood', name: 'Cocoa wood', kind: 'wood', color: 0x7a5236, price: 50 },
+  { id: 'floor-sea-glass', name: 'Sea-glass tile', kind: 'tile', color: 0x9dcfc9, price: 50 },
+  { id: 'floor-rosewood', name: 'Rosewood planks', kind: 'wood', color: 0x9c625f, price: 55 },
+  { id: 'floor-cloud-rug', name: 'Cloud-soft rug', kind: 'carpet', color: 0xe8e5f2, price: 50 },
+  { id: 'floor-sunbeam', name: 'Sunbeam oak', kind: 'wood', color: 0xe2bd74, price: 55 },
 ];
 
 /** Colour choices for the big furniture (sofa, bed blanket, curtains, rugs). */
@@ -55,6 +65,10 @@ export const COLORS: ColorDef[] = [
   { id: 'c-cream', name: 'Cream', color: 0xf3e6d2, price: 20 },
   { id: 'c-navy', name: 'Navy', color: 0x3a4a7a, price: 25 },
   { id: 'c-cocoa', name: 'Cocoa', color: 0x8a5a44, price: 25 },
+  { id: 'c-teal', name: 'Lagoon', color: 0x4faaa7, price: 25 },
+  { id: 'c-plum', name: 'Mulberry', color: 0x805278, price: 25 },
+  { id: 'c-sage', name: 'Sage', color: 0x78966d, price: 25 },
+  { id: 'c-cherry', name: 'Cherry', color: 0xc94861, price: 30 },
 ];
 
 export interface RoomLook { wall: string; floor: string; sofa: string; blanket: string; curtain: string; rug: string }
@@ -73,6 +87,9 @@ export const VIBES: VibeDef[] = [
   { id: 'vibe-lavender', name: 'Lavender dream', emoji: '💜', price: 140, look: { wall: 'wall-lavender', floor: 'floor-lilac-carpet', sofa: 'c-lilac', blanket: 'c-lilac', curtain: 'c-cream', rug: 'c-blush' } },
   { id: 'vibe-sunny', name: 'Sunny cottage', emoji: '🌻', price: 120, look: { wall: 'wall-butter', floor: 'floor-honey', sofa: 'c-peach', blanket: 'c-butter', curtain: 'c-peach', rug: 'c-mint' } },
   { id: 'vibe-midnight', name: 'Midnight stars', emoji: '🌙', price: 160, look: { wall: 'wall-midnight', floor: 'floor-dark-wood', sofa: 'c-navy', blanket: 'c-navy', curtain: 'c-lilac', rug: 'c-sky' } },
+  { id: 'vibe-seaside', name: 'Seaside daydream', emoji: '🐚', price: 170, look: { wall: 'wall-seashell', floor: 'floor-sea-glass', sofa: 'c-teal', blanket: 'c-sky', curtain: 'c-cream', rug: 'c-mint' } },
+  { id: 'vibe-meadow', name: 'Meadow picnic', emoji: '🌼', price: 170, look: { wall: 'wall-meadow', floor: 'floor-sunbeam', sofa: 'c-sage', blanket: 'c-butter', curtain: 'c-mint', rug: 'c-cream' } },
+  { id: 'vibe-rose', name: 'Rosewood romance', emoji: '🌹', price: 185, look: { wall: 'wall-peach-arches', floor: 'floor-rosewood', sofa: 'c-cherry', blanket: 'c-rose', curtain: 'c-peach', rug: 'c-plum' } },
 ];
 
 /** Things she can place on the floor (and that pets use). */
@@ -89,6 +106,14 @@ export const ITEMS: ItemDef[] = [
   { id: 'bear', name: 'Giant teddy', emoji: '🧸', price: 60, use: 'deco', w: 100, h: 120 },
   { id: 'fishbowl', name: 'Fish bowl', emoji: '🐠', price: 40, use: 'toy', w: 70, h: 90 },
   { id: 'heart-pillow', name: 'Heart floor cushion', emoji: '❤️', price: 30, use: 'bed', w: 90, h: 40 },
+  { id: 'bookshelf', name: 'Storybook shelf', emoji: '📚', price: 85, use: 'deco', w: 128, h: 168 },
+  { id: 'coffee-table', name: 'Tea-time table', emoji: '🫖', price: 75, use: 'deco', w: 142, h: 88 },
+  { id: 'side-table', name: 'Little side table', emoji: '🪑', price: 55, use: 'deco', w: 80, h: 108 },
+  { id: 'vanity', name: 'Blush vanity', emoji: '🪞', price: 95, use: 'deco', w: 124, h: 166 },
+  { id: 'flower-vase', name: 'Daisy vase', emoji: '💐', price: 45, use: 'deco', w: 74, h: 104 },
+  { id: 'fireplace', name: 'Cozy fireplace', emoji: '🔥', price: 130, use: 'deco', w: 150, h: 150 },
+  { id: 'record-player', name: 'Vinyl record player', emoji: '🎵', price: 70, use: 'deco', w: 94, h: 80 },
+  { id: 'cushion-stack', name: 'Cottage cushions', emoji: '🧶', price: 50, use: 'bed', w: 100, h: 68 },
 ];
-export const MAX_ITEMS_PER_ROOM = 6;
+export const MAX_ITEMS_PER_ROOM = 10;
 export const itemDef = (id: string) => ITEMS.find((i) => i.id === id);

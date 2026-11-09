@@ -10,6 +10,7 @@ import { photoUrl } from '../../garden/draw';
 import { plantDef } from '../../garden/data';
 import { petPhotoUrl } from '../../pets/draw';
 import { breed } from '../../pets/data';
+import { homeMemoryImage } from '../../home/memories';
 
 interface Pic { src: string; caption: string; date?: string; template?: boolean }
 
@@ -34,9 +35,15 @@ function albums(): { id: string; name: string; pics: Pic[]; note?: string }[] {
     caption: ph.kind === 'bouquet' ? `A bouquet of ${[...new Set(ph.flowers ?? [])].map((f) => plantDef(f)?.name.toLowerCase() ?? f).join(', ')}` : 'Our garden ♡',
     date: new Date(ph.at).toLocaleDateString([], { year: 'numeric', month: 'short', day: 'numeric' }),
   }));
+  const homeMemories: Pic[] = [...store.state.home.memories].reverse().map((memory) => ({
+    src: homeMemoryImage(memory),
+    caption: memory.caption,
+    date: new Date(memory.at).toLocaleDateString([], { year: 'numeric', month: 'short', day: 'numeric' }),
+  }));
   return [
     { id: 'memories', name: 'Memories', pics: memories, note: 'Your real photos appear here once they’re added (see CONTENT_GUIDE.md → Photos).' },
     { id: 'us', name: 'Us', pics: [...art(store.playAs()), ...art(store.partner())] },
+    ...(homeMemories.length ? [{ id: 'home', name: 'Home', pics: homeMemories }] : []),
     ...(store.state.pets.list.length || store.state.pets.photos.length ? [{ id: 'pets', name: 'Pets', pics: [...store.state.pets.photos].reverse().map((ph) => ({
       src: petPhotoUrl({ room: ph.room, pets: ph.pets.map((x) => ({ ...x, breed: breed(x.breed) ?? breed('cat-orange')! })) }),
       caption: ph.pets.map((x) => x.name).join(' & '),

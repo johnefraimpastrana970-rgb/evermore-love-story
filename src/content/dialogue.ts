@@ -93,6 +93,8 @@ export const DIALOGUE: Record<string, DialogueNode> = {
     lines: [{ speaker: 'him', text: 'Grill master reporting for duty. Want to help me cook?', mood: 'happy' }],
     choices: [
       { text: 'Let’s cook together!', action: 'minigame', arg: 'cooking' },
+      { text: 'Flip the skewers!', action: 'minigame', arg: 'grill-flip' },
+      { text: 'Build a colorful skewer!', action: 'minigame', arg: 'skewer-memory' },
       { text: 'I’ll supervise', effects: [{ type: 'xp', amount: 5 }], next: 'grill-supervise' },
     ],
   },

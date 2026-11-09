@@ -111,7 +111,16 @@ export function importSave(text: string): GameState {
 export function loadSettings(): Settings {
   try {
     const raw = kv.getItem(PREFIX + 'settings');
-    if (raw) return { ...defaultSettings(), ...JSON.parse(raw) };
+    if (raw) {
+      const saved = JSON.parse(raw) as Record<string, unknown>;
+      const hadDateOverride = 'debugDate' in saved;
+      const hadManualOccasions = 'manualOccasions' in saved;
+      delete saved.debugDate;
+      delete saved.manualOccasions;
+      const settings = { ...defaultSettings(), ...saved };
+      if (hadDateOverride || hadManualOccasions) kv.setItem(PREFIX + 'settings', JSON.stringify(settings));
+      return settings;
+    }
   } catch { /* fall through */ }
   return defaultSettings();
 }

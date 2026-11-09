@@ -98,7 +98,7 @@ export function runScheduler(now = Date.now()): Delivery[] {
 
   // Occasion greeting (the partner's own line from the occasion, skipping unwritten templates).
   if (now >= localAt(today, '07:00')) {
-    for (const occ of currentOccasions()) {
+    for (const occ of currentOccasions(new Date(now))) {
       const k = `occ:${occ.id}`;
       if (!occ.greeting || p.greetings[k] === today) continue;
       p.greetings[k] = today;

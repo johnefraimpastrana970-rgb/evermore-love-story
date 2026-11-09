@@ -64,13 +64,14 @@ Personal days are disabled templates. To turn on your anniversary:
 ```
 
 Rule types: `yearly` (month/day, optional `durationDays`, `leadDays`), `monthly` (day — great for monthsaries),
-`fixed` (`'2027-06-01'`), `range` (`'12-20'` to `'01-01'`), `nthWeekday` (e.g. 2nd Sunday of May), `manual`.
+`fixed` (`'2027-06-01'`), `range` (`'12-20'` to `'01-01'`), `nthWeekday` (e.g. 2nd Sunday of May), `manual` (no automatic calendar date).
 
 While active, an occasion changes decorations (`hearts`, `lights`, `snow`, `balloons`, `pumpkins`, `confetti`,
 `petals`), screen tint, music, shows a banner, plays a greeting once that day (edit `OCCASION_DIALOGUE`),
 starts a special quest, gives bonus XP and unlocks its `surpriseId`.
 
-**Testing:** Settings → Special Days → tick *Preview*, or set *Pretend today is* to any date.
+Special days activate from the device’s real local date. Their room color, decoration, and music variation is chosen
+deterministically for that date, so it remains the same while moving between rooms or restarting the game.
 
 ## 3. Conversations — `src/content/dialogue.ts`
 

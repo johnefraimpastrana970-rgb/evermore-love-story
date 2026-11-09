@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { COLORS, DEFAULT_LOOK, FLOORS, ITEMS, MAX_ITEMS_PER_ROOM, VIBES, WALLS } from '../src/home/data';
-import { applyVibe, buy, defaultHome, lookKey, move, owns, place, repairHome, resolveLook, setColor, setFloor, setWall, spare, store } from '../src/home/logic';
+import { applyVibe, buy, defaultHome, lookKey, move, owns, place, repairHome, remember, resolveLook, setColor, setFloor, setWall, spare, store } from '../src/home/logic';
 import { migrate } from '../src/core/state';
 
 describe('decorating data', () => {
@@ -8,6 +8,13 @@ describe('decorating data', () => {
     const ids = [...WALLS, ...FLOORS, ...COLORS, ...VIBES, ...ITEMS].map((x) => x.id);
     expect(new Set(ids).size).toBe(ids.length);
     for (const v of VIBES) for (const id of Object.values(v.look)) if (id) expect(ids, `${v.id} → ${id}`).toContain(id);
+  });
+  it('includes varied wallpaper designs and a larger furniture catalog', () => {
+    expect(WALLS.map((wall) => wall.style.pattern)).toEqual(expect.arrayContaining(['floral', 'scallop', 'checker', 'stars']));
+    expect(ITEMS.length).toBeGreaterThanOrEqual(18);
+    expect(MAX_ITEMS_PER_ROOM).toBeGreaterThan(6);
+    expect(ITEMS.find((item) => item.id === 'bookshelf')?.use).toBe('deco');
+    expect(ITEMS.find((item) => item.id === 'cushion-stack')?.use).toBe('bed');
   });
   it('the default look is free and unchanged when painting', () => {
     const h = defaultHome();
@@ -71,6 +78,7 @@ describe('items', () => {
 describe('home save', () => {
   it('older saves get the original look; damaged parts are repaired', () => {
     expect(migrate({ version: 10 }).home.rooms).toEqual(DEFAULT_LOOK);
+    expect(migrate({ version: 12 }).home.memories).toEqual([]);
     const m = migrate({ version: 11, home: { owned: ['wall-mint', 'nope'], rooms: { bedroom: { wall: 'wall-lavender', floor: 'floor-honey' }, attic: {} }, items: [{ id: 'a', item: 'cat-tree', room: 'bedroom', x: 1, y: 2 }, { id: 'b', item: 'rocket', room: 'bedroom', x: 1, y: 2 }] } });
     expect(m.home.rooms.bedroom.wall).toBe(DEFAULT_LOOK.bedroom.wall); // lavender isn't owned
     expect(m.home.owned).toContain('wall-mint');
@@ -83,5 +91,15 @@ describe('home save', () => {
     const copy = JSON.parse(JSON.stringify(h));
     repairHome(copy);
     expect(copy).toEqual(h);
+  });
+  it('records each first-time home memory once and repairs saved entries', () => {
+    const h = defaultHome();
+    expect(remember(h, 'first-dinner', 123)).toMatchObject({ title: 'Our first cozy meal', room: 'kitchen', at: 123 });
+    expect(remember(h, 'first-dinner', 456)).toBeNull();
+    const copy = JSON.parse(JSON.stringify(h));
+    repairHome(copy);
+    expect(copy.memories).toEqual([
+      { id: 'first-dinner', title: 'Our first cozy meal', caption: 'A little meal together at the kitchen table.', room: 'kitchen', at: 123 },
+    ]);
   });
 });

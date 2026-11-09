@@ -8,6 +8,7 @@ import { overlay, confetti } from '../pizza/ui';
 import { PERSONALITIES, breed, type ActivityId, type BreedDef } from './data';
 import { applyActivity, bondLevel, speciesOf, type Pet } from './logic';
 import { PET_FRAMES, PET_H, PET_W, buildPetSheet } from './draw';
+import { captureHomeMemory } from '../home/memories';
 
 /*
  * Care & play: six short, relaxed activities. None can be failed; a better score just makes the pet happier.
@@ -105,6 +106,7 @@ export function openCare(pet: Pet, first?: ActivityId): Promise<void> {
       const before = bondLevel(pet.bond);
       applyActivity(pet, id, score, Date.now());
       bumpStat(`care-${id}`);
+      if (id === 'fetch') captureHomeMemory('first-pet-play');
       gainXp(10 + Math.round(score * 20), 'pet');
       store.save();
       result(a.emoji, a.name, score, bondLevel(pet.bond) > before);

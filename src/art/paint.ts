@@ -173,7 +173,7 @@ export function drawSky(ctx: Ctx, x: number, y: number, w: number, h: number, ti
 export interface WallStyle {
   base: number;
   accent: number;
-  pattern: 'stripes' | 'dots' | 'plain' | 'hearts' | 'tiles' | 'panel';
+  pattern: 'stripes' | 'dots' | 'plain' | 'hearts' | 'tiles' | 'panel' | 'floral' | 'scallop' | 'checker' | 'stars';
   wainscot?: number;
 }
 
@@ -197,6 +197,37 @@ export function drawWall(ctx: Ctx, w: number, floorY: number, st: WallStyle) {
     }
   } else if (st.pattern === 'panel') {
     for (let x = 0; x < w; x += 160) ctx.fillRect(x, 0, 3, floorY);
+  } else if (st.pattern === 'floral') {
+    for (let y = 44; y < floorY - 30; y += 86) {
+      for (let x = (y / 86) % 2 ? 40 : 0; x < w; x += 86) {
+        for (let i = 0; i < 5; i++) {
+          const a = i * Math.PI * 2 / 5;
+          ellipse(ctx, x + Math.cos(a) * 8, y + Math.sin(a) * 8, 5, 5, hex(st.accent));
+        }
+        ellipse(ctx, x, y, 4, 4, hex(shade(st.accent, -0.2)));
+        ellipse(ctx, x + 17, y + 20, 2.5, 2.5, hex(st.accent));
+        ellipse(ctx, x - 17, y + 20, 2.5, 2.5, hex(st.accent));
+      }
+    }
+  } else if (st.pattern === 'scallop') {
+    for (let y = 0; y < floorY; y += 38) {
+      for (let x = (y / 38) % 2 ? -20 : 0; x < w; x += 40) {
+        ctx.beginPath();
+        ctx.arc(x + 20, y, 20, 0, Math.PI);
+        ctx.strokeStyle = hex(st.accent);
+        ctx.lineWidth = 2;
+        ctx.stroke();
+      }
+    }
+  } else if (st.pattern === 'checker') {
+    for (let y = 0; y < floorY; y += 44) for (let x = 0; x < w; x += 44) {
+      if ((x / 44 + y / 44) % 2 === 0) ctx.fillRect(x, y, 22, 22);
+    }
+  } else if (st.pattern === 'stars') {
+    for (let y = 34; y < floorY - 24; y += 64) for (let x = (y / 64) % 2 ? 32 : 0; x < w; x += 64) {
+      starPath(ctx, x, y, 7, 0.45);
+      ctx.fill();
+    }
   }
   ctx.restore();
   // Crown moulding

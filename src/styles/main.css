@@ -215,6 +215,24 @@ code { font-size: .85em; background: rgba(232, 87, 125, .1); padding: 1px 6px; b
   animation: beat 1.4s ease-in-out infinite;
 }
 .hud-btns [data-phone] .badge.hidden { display: none; }
+.hud-needs {
+  position: fixed; left: calc(16px + var(--safe-l)); bottom: calc(16px + var(--safe-b)); z-index: 4;
+  display: flex; align-items: stretch; gap: 7px; pointer-events: auto;
+}
+.need-btn {
+  min-width: 62px; height: 72px; border: 0; border-radius: 18px; padding: 6px 8px; color: var(--ink);
+  background: rgba(255, 248, 241, .94); box-shadow: var(--shadow); display: flex; flex-direction: column;
+  align-items: center; justify-content: center; gap: 2px; font: inherit; transition: transform .18s, background .18s;
+}
+.need-btn:hover { transform: translateY(-3px); background: #fff; }
+.need-btn:active { transform: scale(.94); }
+.need-btn .need-icon { font-size: 25px; line-height: 1.05; }
+.need-btn small { color: var(--ink-soft); font-size: 10px; font-weight: 600; white-space: nowrap; }
+.need-btn.need-hunger { width: 96px; }
+.need-btn.need-hunger.low { background: #fff0e8; }
+.hunger-track { width: 100%; height: 7px; overflow: hidden; border-radius: 999px; background: #f0d7d4; }
+.hunger-track > i { display: block; width: 100%; height: 100%; border-radius: inherit; background: linear-gradient(90deg, #f1a94c, #79c77e); transition: width .5s ease; }
+.need-hunger.low .hunger-track > i { background: linear-gradient(90deg, #ed6868, #f1a94c); }
 
 .prompt {
   position: fixed; left: 50%; bottom: calc(26px + var(--safe-b)); transform: translateX(-50%); border: 0; border-radius: 999px;
@@ -250,6 +268,10 @@ code { font-size: .85em; background: rgba(232, 87, 125, .1); padding: 1px 6px; b
 .hands-btn.on span { transform: scale(1.12) rotate(-6deg); }
 .hands-btn:active { transform: scale(.92); }
 .hands-btn.hidden { display: none; }
+
+@media (pointer: coarse) {
+  .hud-needs { bottom: calc(178px + var(--safe-b)); }
+}
 
 /* ---------- toasts ---------- */
 .toasts { position: fixed; top: calc(90px + var(--safe-t)); left: 50%; transform: translateX(-50%); display: flex; flex-direction: column; gap: 8px; align-items: center; pointer-events: none; z-index: 70; }
@@ -593,6 +615,16 @@ li.done .ck { background: var(--mint); border-color: var(--mint); color: #fff; }
 .cook-feedback.f100 { color: var(--rose); }
 .cook-feedback.f70 { color: #4a9a6a; }
 .cook-feedback.f35, .cook-feedback.f10 { color: var(--ink-soft); }
+.grill-challenge .cook-pan img { filter: hue-rotate(320deg) saturate(.8); }
+.cook-go:disabled { animation: none; opacity: .7; }
+
+.skewer-game { width: min(520px, 100%); text-align: center; }
+.skewer-display { min-height: 74px; display: grid; place-items: center; font-size: clamp(30px, 7vw, 48px); color: var(--rose-deep); letter-spacing: 8px; }
+.skewer-choices { display: flex; justify-content: center; flex-wrap: wrap; gap: 10px; }
+.skewer-choice { width: 64px; height: 64px; border: 2px solid #f3cbd8; border-radius: 18px; background: #fff; font-size: 32px; box-shadow: 0 4px 0 #f3cbd8; }
+.skewer-choice:not(:disabled):hover { transform: translateY(-2px); background: #fff2f6; }
+.skewer-choice:disabled { opacity: .55; }
+.skewer-feedback { min-height: 26px; margin: 8px 0 0; color: var(--rose-deep); font-weight: 600; }
 
 .stars-canvas { width: min(800px, 100%); max-height: 62vh; aspect-ratio: 16 / 9; border-radius: 18px; touch-action: none; cursor: crosshair; box-shadow: 0 8px 24px rgba(10, 10, 40, .4); }
 
@@ -832,6 +864,10 @@ input[type=range]:active::-webkit-slider-thumb { transform: scale(1.25); }
   .hud-btns img { width: 28px; height: 28px; }
   .hud-btns span { display: none; }
   .hud-occ span { font-size: 20px; }
+  .hud-needs { gap: 5px; }
+  .need-btn { height: 62px; min-width: 56px; padding: 4px 6px; border-radius: 14px; }
+  .need-btn.need-hunger { width: 86px; }
+  .need-btn .need-icon { font-size: 22px; }
   .dlg-card { min-height: 100px; padding: 18px 22px 14px; border-radius: 20px; }
   .dlg-text { font-size: 17px; min-height: 44px; }
   .dlg-choice { font-size: 15px; padding: 6px 12px; }

@@ -12,7 +12,7 @@ import { AUTHORED, mergeGreetings, mergeOccasions } from './authored';
  *   { type: 'fixed', date: '2027-06-01' }        (one-off)
  *   { type: 'range', start: '12-20', end: '01-01' }  (wraps the year)
  *   { type: 'nthWeekday', month: 5, weekday: 0, nth: 2 } (2nd Sunday of May; nth -1 = last)
- *   { type: 'manual' }                           (only when toggled in Settings)
+ *   { type: 'manual' }                           (no automatic calendar date)
  */
 export const OCCASION_TEMPLATES: OccasionDef[] = [
   // ---- Personal templates (fill these in!) --------------------------------
@@ -43,7 +43,7 @@ export const OCCASION_TEMPLATES: OccasionDef[] = [
   // ---- Public occasions --------------------------------------------------
   {
     id: 'valentines', name: 'Valentine’s Day', enabled: true, priority: 80,
-    rule: { type: 'yearly', month: 2, day: 14, durationDays: 1, leadDays: 1 },
+    rule: { type: 'yearly', month: 2, day: 14, durationDays: 1 },
     theme: { tint: 0xffc8d8, decorations: ['hearts', 'petals', 'lights'], music: 'festive', banner: 'Happy Valentine’s Day' },
     greeting: 'occ-valentines', questId: 'occ-generic', surpriseId: 'surprise-valentines', bonusXp: 300,
   },
@@ -61,7 +61,7 @@ export const OCCASION_TEMPLATES: OccasionDef[] = [
   },
   {
     id: 'halloween', name: 'Halloween', enabled: true, priority: 40,
-    rule: { type: 'range', start: '10-29', end: '10-31' },
+    rule: { type: 'yearly', month: 10, day: 31, durationDays: 1 },
     theme: { tint: 0xffd6b0, decorations: ['pumpkins', 'lights'], banner: 'Happy Halloween' },
     greeting: 'occ-halloween', bonusXp: 100,
   },

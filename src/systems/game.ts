@@ -24,11 +24,11 @@ export function ctx(): CondCtx {
   };
 }
 
-export function currentOccasions(): OccasionDef[] {
-  return activeOccasions(OCCASIONS, store.now(), store.settings.manualOccasions);
+export function currentOccasions(date: Date = store.now()): OccasionDef[] {
+  return activeOccasions(OCCASIONS, date);
 }
-export function topOccasion(): OccasionDef | undefined {
-  return currentOccasions()[0];
+export function topOccasion(date?: Date): OccasionDef | undefined {
+  return currentOccasions(date)[0];
 }
 
 export function toast(text: string, icon = 'sparkle', kind: 'info' | 'good' | 'quest' | 'ach' = 'info') {

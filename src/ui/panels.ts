@@ -482,7 +482,7 @@ function renderMap(body: HTMLElement) {
   // The house: a little card to pick a room.
   const rooms = () => {
     wrap.querySelector('.tm-rooms')?.remove();
-    const card = el('div', 'tm-rooms', `<b>🏡 Home</b>${(['bedroom', 'livingroom', 'kitchen'] as LocationId[]).map((id) => {
+    const card = el('div', 'tm-rooms', `<b>🏡 Home</b>${(['bedroom', 'livingroom', 'kitchen', 'bathroom', 'comfortroom'] as LocationId[]).map((id) => {
       const loc = LOCATIONS[id];
       return `<button data-room="${id}" class="${s.location === id ? 'here' : ''}">${iconImg(loc.icon, 40)}<span><b>${esc(loc.name)}</b><small>${s.location === id ? 'You are here ♡' : esc(loc.subtitle)}</small></span></button>`;
     }).join('')}<button class="tm-x" aria-label="Close">✕</button>`);
@@ -554,23 +554,10 @@ function renderSettings(body: HTMLElement, st: PanelState) {
     sc.querySelector('[data-act=title]')!.addEventListener('click', () => { closePanel(); bus.emit('to-title'); });
   } else if (tab === 'days') {
     const active = currentOccasions().map((o) => o.id);
-    sc.innerHTML = `<p class="hint">Special days change decorations, music, greetings and quests. Personal dates are templates — set the real date in <code>src/content/occasions.ts</code>. “Preview” forces one on so you can see it.</p>
+    sc.innerHTML = `<p class="hint">Special days follow your device’s local calendar (${esc(store.now().toLocaleDateString(undefined, { dateStyle: 'long' }))}). Their room colors, decorations and music vary by day. Add personal dates in the Author tool.</p>
       ${OCCASIONS.map((o) => `<div class="occ-row ${active.includes(o.id) ? 'on' : ''}">
-        <div><b>${richText(store.fmtLiteral(o.name))}</b><small>${o.placeholder ? 'template · not set up yet' : o.enabled ? 'enabled' : 'disabled'}${active.includes(o.id) ? ' · active today ✨' : ''}</small></div>
-        <label class="toggle"><input type="checkbox" data-occ="${o.id}" ${set.manualOccasions.includes(o.id) ? 'checked' : ''}> Preview</label></div>`).join('')}
-      ${row('Pretend today is', `<input type="date" data-k="debugDate" value="${esc(set.debugDate)}">`, 'For testing date-based days. Clear it to use the real date.')}`;
-    sc.querySelectorAll<HTMLInputElement>('[data-occ]').forEach((i) => i.addEventListener('change', () => {
-      const list = new Set(store.settings.manualOccasions);
-      if (i.checked) list.add(i.dataset.occ!); else list.delete(i.dataset.occ!);
-      store.updateSettings({ manualOccasions: [...list] });
-      bus.emit('occasions');
-      st.render();
-    }));
-    sc.querySelector('[data-k=debugDate]')!.addEventListener('change', (e) => {
-      store.updateSettings({ debugDate: (e.target as HTMLInputElement).value });
-      bus.emit('occasions');
-      st.render();
-    });
+        <div><b>${richText(store.fmtLiteral(o.name))}</b><small>${o.placeholder ? 'personal date · add it in the Author tool' : o.rule.type === 'manual' ? 'manual-only · no calendar date' : o.enabled ? 'calendar date' : 'not scheduled'}${active.includes(o.id) ? ' · active today ✨' : ''}</small></div>
+        <span>${active.includes(o.id) ? 'Today ✨' : ''}</span></div>`).join('')}`;
   } else if (tab === 'save') {
     sc.innerHTML = `<p class="hint">The game autosaves often. Use slots to keep a copy, or export a backup file.</p>
       ${SLOTS.map((slot) => {

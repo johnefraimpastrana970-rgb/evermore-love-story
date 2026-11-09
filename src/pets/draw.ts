@@ -182,7 +182,8 @@ export function buildPetSheet(b: BreedDef): HTMLCanvasElement {
 }
 
 const ROOM_BG: Record<string, [string, string]> = {
-  bedroom: ['#fde6ef', '#e8c9b4'], livingroom: ['#f4ecdf', '#c49a72'], kitchen: ['#fff4e2', '#e6d6c2'], backyard: ['#bfe8ff', '#8fd17a'],
+  bedroom: ['#fde6ef', '#e8c9b4'], livingroom: ['#f4ecdf', '#c49a72'], kitchen: ['#fff4e2', '#e6d6c2'],
+  bathroom: ['#e7f7f5', '#addbd7'], comfortroom: ['#f9e9ef', '#e9cad4'], backyard: ['#bfe8ff', '#8fd17a'],
 };
 /** A pet photo for the Gallery, redrawn from what was saved (pets + room). */
 export function petPhotoUrl(ph: { room: string; pets: { breed: BreedDef; name: string; pose: string }[] }): string {

@@ -6,7 +6,7 @@ import { defaultWork, repairWork, type WorkState } from '../work/logic';
 import { defaultPets, repairPets, type PetsState } from '../pets/logic';
 import { defaultHome, repairHome, type HomeState } from '../home/logic';
 
-export const SAVE_VERSION = 11;
+export const SAVE_VERSION = 13;
 
 /** His real look (from his character art) + the older defaults. */
 export const HIS_DEFAULT_OWNED = ['his-hair-black', 'his-outfit-raglan', 'his-hair-ink', 'his-outfit-navy'];
@@ -29,10 +29,6 @@ export interface Settings {
   timeMode: 'real' | 'manual';
   manualTime: TimeOfDay;
   companionMode: 'follow' | 'stay' | 'hidden';
-  /** ISO date to pretend "today" is (preview occasions). Empty = real date. */
-  debugDate: string;
-  /** Occasion ids forced on. */
-  manualOccasions: string[];
   showHints: boolean;
 }
 
@@ -41,6 +37,7 @@ export interface GameState {
   createdAt: number;
   updatedAt: number;
   playSeconds: number;
+  hunger: number;
   /** playAs: which of the two the player walks around as. The other one is the companion. */
   profile: { herName: string; hisName: string; playAs: 'her' | 'him' };
   level: number;
@@ -105,8 +102,6 @@ export function defaultSettings(): Settings {
     timeMode: 'real',
     manualTime: 'day',
     companionMode: 'follow',
-    debugDate: '',
-    manualOccasions: [],
     showHints: true,
   };
 }
@@ -118,6 +113,7 @@ export function defaultState(herName = '', hisName = '', playAs: 'her' | 'him' =
     createdAt: now,
     updatedAt: now,
     playSeconds: 0,
+    hunger: 100,
     profile: { herName, hisName, playAs },
     level: 1,
     xp: 0,
@@ -180,6 +176,7 @@ function mergeDefaults<T>(def: T, saved: unknown): T {
 export function migrate(raw: unknown): GameState {
   if (!isObj(raw)) throw new Error('Save data is not an object');
   const s = mergeDefaults(defaultState(), raw);
+  s.hunger = typeof s.hunger === 'number' && Number.isFinite(s.hunger) ? Math.max(0, Math.min(100, s.hunger)) : 100;
   // Remove the unused AI counter from saves created by older online-enabled versions.
   delete (s.phone as PhoneState & { ai?: unknown }).ai;
   // v1 -> v2: "hearts" field renamed to tokens.
@@ -219,6 +216,7 @@ export function migrate(raw: unknown): GameState {
   // v9 -> v10: pets.
   repairPets(s.pets);
   // v10 -> v11: decorating.
+  // v12 -> v13: home-memory entries are repaired with the rest of the home save.
   repairHome(s.home);
   if (s.profile.playAs !== 'him') s.profile.playAs = 'her'; // older saves: she was always the player
   if (!Number.isFinite(s.level) || s.level < 1) s.level = 1;

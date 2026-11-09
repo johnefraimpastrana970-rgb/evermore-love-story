@@ -1,4 +1,4 @@
-import type { PanelId } from '../content/types';
+import type { NeedAction, PanelId } from '../content/types';
 import { store } from '../core/store';
 import { bus } from '../core/events';
 import { audio } from '../audio/audio';
@@ -53,6 +53,14 @@ export function initHud() {
         <div class="hud-meta"><span class="hud-tokens"><img src="${iconURL('coin', 32)}" alt=""><b></b></span><span class="hud-time"></span></div>
       </div>
     </div>
+    <div class="hud-needs" aria-label="Character needs">
+      <button class="need-btn need-hunger" data-need="eat" title="Eat at the kitchen table" aria-label="Eat at the kitchen table">
+        <span class="need-icon" aria-hidden="true">🍽️</span><small>Eat · <b data-hunger-value>100</b>%</small>
+        <i class="hunger-track" role="progressbar" aria-label="Hunger" aria-valuemin="0" aria-valuemax="100" aria-valuenow="100"><i data-hunger-bar></i></i>
+      </button>
+      <button class="need-btn" data-need="shower" title="Take a shower" aria-label="Take a shower"><span class="need-icon" aria-hidden="true">🚿</span><small>Shower</small></button>
+      <button class="need-btn" data-need="toilet" title="Use the comfort room" aria-label="Use the toilet"><span class="need-icon" aria-hidden="true">💩</span><small>Toilet</small></button>
+    </div>
     <button class="hud-quest hidden"></button>
     <div class="hud-occ hidden"></div>
     <nav class="hud-btns"><button data-phone title="Phone (P)"><img src="${PHONE_GLYPH}" alt=""><span>Phone</span><i class="badge hidden"></i></button>${BUTTONS.map(([id, ic, label, key]) =>
@@ -77,6 +85,14 @@ export function initHud() {
   decorEl = el('button', `hud-decor ${isTouch() ? 'touch' : ''}`, '<span>🎨</span><small>Decorate</small>');
   hud.appendChild(decorEl);
   decorEl.addEventListener('click', () => { audio.unlock(); if (!store.blocked) void openDecorate(); });
+  hud.querySelectorAll<HTMLButtonElement>('[data-need]').forEach((button) => {
+    button.addEventListener('click', () => {
+      if (store.blocked || button.disabled) return;
+      audio.unlock();
+      audio.sfx('click');
+      bus.emit('need-shortcut', button.dataset.need as NeedAction);
+    });
+  });
   bus.on('settings', render);
   bus.on('work:leave', render);
   bus.on('work:home', render);
@@ -88,6 +104,7 @@ export function initHud() {
   hud.querySelector('[data-phone]')!.addEventListener('click', () => { audio.unlock(); openPhone(); });
   bus.on('phone', render);
   bus.on('state', render);
+  bus.on('needs', renderNeeds);
   bus.on('time', render);
   bus.on('occasions', render);
   setInterval(() => { if (store.hasGame) render(); }, 30000);
@@ -145,6 +162,7 @@ function render() {
   bumpIfChanged(lvl, String(s.level));
   hud.querySelector('.hud-time')!.textContent = TIME_LABEL[store.timeOfDay()];
   decorEl.classList.toggle('hidden', !isHouseRoom(s.location));
+  renderNeeds();
   const follows = store.settings.companionMode === 'follow' && !partnerAway();
   handsEl.classList.toggle('hidden', !follows);
   if (!follows) setHoldingHands(false);
@@ -172,4 +190,18 @@ function render() {
     oc.innerHTML = `<span>✦ ${esc(occ.literal ? store.fmtLiteral(banner) : store.fmt(banner))} ✦</span>`;
     oc.classList.remove('hidden');
   } else oc.classList.add('hidden');
+}
+
+function renderNeeds() {
+  if (!store.hasGame || !hud) return;
+  const hunger = Math.max(0, Math.min(100, store.state.hunger));
+  const value = hud.querySelector('[data-hunger-value]') as HTMLElement | null;
+  const bar = hud.querySelector('[data-hunger-bar]') as HTMLElement | null;
+  const track = hud.querySelector('.hunger-track') as HTMLElement | null;
+  if (!value || !bar || !track) return;
+  value.textContent = String(Math.round(hunger));
+  bar.style.width = `${hunger}%`;
+  track.setAttribute('aria-valuenow', String(Math.round(hunger)));
+  track.setAttribute('aria-valuetext', `${Math.round(hunger)}% hunger`);
+  track.closest('.need-btn')?.classList.toggle('low', hunger <= 20);
 }

@@ -23,6 +23,8 @@ interface Shell {
 const INFO: Record<MinigameId, { title: string; how: string; icon: string }> = {
   memory: { title: 'Keepsake Memory', how: 'Flip two cards at a time and find every matching pair.', icon: 'polaroid' },
   cooking: { title: 'Cooking Together', how: 'Press Space / tap “Now!” when the marker is inside the pink zone. Dead centre is perfect.', icon: 'pancake' },
+  'grill-flip': { title: 'Grill Flip Challenge', how: 'Tap “Flip!” when the marker lands in the sweet spot. Keep the skewers from falling!', icon: 'star' },
+  'skewer-memory': { title: 'Colorful Skewer', how: 'Memorize each ingredient sequence, then tap the ingredients in the same order.', icon: 'heart' },
   stars: { title: 'Stargazing', how: 'Connect the glowing stars in order (1 → 2 → 3…) to draw each constellation.', icon: 'star' },
   scramble: { title: 'Chalkboard Words', how: 'Unscramble the love word. Tap letters in order — or type them.', icon: 'book' },
   slider: { title: 'Photo Puzzle', how: 'Slide the tiles back into place. Tap a tile next to the gap, or use the arrow keys.', icon: 'polaroid' },
@@ -221,6 +223,166 @@ const GAMES: Record<MinigameId, (sh: Shell) => Promise<number | null>> = {
     const avg = Math.round(scores.reduce((a, b) => a + b, 0) / scores.length);
     if (fresh && useProduce(store.state.garden, fresh.id)) return Math.min(100, avg + 12);
     return avg;
+  },
+
+  // ---------------------------------------------------------- backyard grill games
+  async 'grill-flip'(sh) {
+    const box = el('div', 'cook grill-challenge');
+    box.innerHTML = `<h3 class="cook-recipe">Grill Flip Challenge</h3>
+      <div class="cook-pan"><img src="${iconURL('pancake', 128)}" alt=""></div>
+      <div class="cook-step">Get ready to flip!</div>
+      <div class="cook-bar"><div class="zone"><i></i></div><div class="marker"></div></div>
+      <div class="cook-feedback"></div>
+      <button class="btn btn-rose big cook-go">Flip!</button>`;
+    sh.stage.appendChild(box);
+    const zone = box.querySelector('.zone') as HTMLElement;
+    const marker = box.querySelector('.marker') as HTMLElement;
+    const step = box.querySelector('.cook-step') as HTMLElement;
+    const feedback = box.querySelector('.cook-feedback') as HTMLElement;
+    const pan = box.querySelector('.cook-pan') as HTMLElement;
+    const go = box.querySelector('.cook-go') as HTMLButtonElement;
+    let cancelled = false;
+    void sh.quit.then(() => { cancelled = true; });
+    let total = 0;
+
+    for (let i = 0; i < 5; i++) {
+      if (cancelled) return null;
+      sh.status(`Skewer <b>${i + 1}</b> of 5`);
+      step.textContent = ['Flip the first skewer!', 'Turn it over!', 'Catch that one!', 'One last turn!', 'Final flip!'][i];
+      const width = 0.28 - i * 0.025;
+      const start = 0.08 + Math.random() * (0.84 - width);
+      zone.style.left = `${start * 100}%`;
+      zone.style.width = `${width * 100}%`;
+      go.disabled = false;
+      feedback.textContent = '';
+      const hit = await new Promise<number | null>((resolve) => {
+        const started = performance.now();
+        let frame = 0;
+        let pos = 0;
+        let settled = false;
+        const cleanup = () => {
+          cancelAnimationFrame(frame);
+          go.removeEventListener('click', press);
+          window.removeEventListener('keydown', onKey);
+        };
+        const finish = (score: number | null) => {
+          if (settled) return;
+          settled = true;
+          cleanup();
+          resolve(score);
+        };
+        const animate = (now: number) => {
+          const phase = ((now - started) / 1000) * (0.7 + i * 0.16);
+          pos = 1 - Math.abs(((phase % 2) + 2) % 2 - 1);
+          marker.style.left = `${pos * 100}%`;
+          frame = requestAnimationFrame(animate);
+        };
+        const press = (event?: Event) => {
+          event?.preventDefault();
+          const centre = start + width / 2;
+          const distance = Math.abs(pos - centre);
+          finish(distance <= width * 0.16 ? 100 : distance <= width / 2 ? 70 : distance <= width ? 35 : 10);
+        };
+        const onKey = (event: KeyboardEvent) => {
+          if (event.code === 'Space' || event.code === 'Enter') press(event);
+        };
+        go.addEventListener('click', press);
+        window.addEventListener('keydown', onKey);
+        void sh.quit.then(() => finish(null));
+        frame = requestAnimationFrame(animate);
+      });
+      if (hit === null) return null;
+      total += hit;
+      go.disabled = true;
+      feedback.textContent = hit === 100 ? 'Perfect flip! ✨' : hit >= 70 ? 'Nicely done!' : hit >= 35 ? 'Almost…' : 'Oops!';
+      feedback.className = `cook-feedback f${hit}`;
+      audio.sfx(hit >= 70 ? 'hit' : 'fail');
+      pan.classList.remove('bounce');
+      void pan.offsetWidth;
+      pan.classList.add('bounce');
+      await new Promise((resolve) => setTimeout(resolve, 450));
+      if (cancelled) return null;
+    }
+
+    return Math.round(total / 5);
+  },
+
+  async 'skewer-memory'(sh) {
+    const ingredients = ['🍅', '🫑', '🍄', '🧅', '🌽', '🍍'];
+    const ingredientNames = ['Tomato', 'Bell pepper', 'Mushroom', 'Onion', 'Corn', 'Pineapple'];
+    const random = rng(Date.now());
+    const box = el('div', 'skewer-game');
+    box.innerHTML = `<div class="skewer-display" aria-live="polite">Ready?</div>
+      <div class="skewer-choices">${ingredients.map((item, i) =>
+        `<button class="skewer-choice" type="button" aria-label="${ingredientNames[i]}">${item}</button>`).join('')}</div>
+      <p class="skewer-feedback" aria-live="polite"></p>`;
+    sh.stage.appendChild(box);
+    const display = box.querySelector('.skewer-display') as HTMLElement;
+    const feedback = box.querySelector('.skewer-feedback') as HTMLElement;
+    const buttons = [...box.querySelectorAll<HTMLButtonElement>('.skewer-choice')];
+    let cancelled = false;
+    void sh.quit.then(() => { cancelled = true; });
+    const pause = async (ms: number) => {
+      await Promise.race([
+        new Promise<void>((resolve) => setTimeout(resolve, ms)),
+        sh.quit.then(() => { cancelled = true; }),
+      ]);
+      return !cancelled;
+    };
+    let correct = 0;
+    let total = 0;
+
+    for (let round = 0; round < 3; round++) {
+      if (cancelled) return null;
+      const sequence = Array.from({ length: round + 3 }, () => random.pick(ingredients));
+      total += sequence.length;
+      sh.status(`Round <b>${round + 1}</b> of 3 · Memorize ${sequence.length} ingredients`);
+      feedback.textContent = '';
+      buttons.forEach((button) => { button.disabled = true; });
+      for (const ingredient of sequence) {
+        display.textContent = ingredient;
+        if (!(await pause(500))) return null;
+        display.textContent = '♡';
+        if (!(await pause(180))) return null;
+      }
+      display.textContent = 'Your turn!';
+      buttons.forEach((button) => { button.disabled = false; });
+
+      const roundResult = await new Promise<boolean>((resolve) => {
+        let index = 0;
+        let settled = false;
+        const cleanup = () => {
+          buttons.forEach((button) => button.removeEventListener('click', onChoice));
+        };
+        const finish = (success: boolean) => {
+          if (settled) return;
+          settled = true;
+          cleanup();
+          resolve(success);
+        };
+        const onChoice = (event: Event) => {
+          const button = event.currentTarget as HTMLButtonElement;
+          if (button.textContent !== sequence[index]) {
+            feedback.textContent = 'Whoops! Let’s try the next skewer.';
+            finish(false);
+            return;
+          }
+          correct++;
+          index++;
+          display.textContent = sequence.slice(0, index).join(' ');
+          if (index === sequence.length) {
+            feedback.textContent = 'Perfect pattern! ✨';
+            finish(true);
+          }
+        };
+        buttons.forEach((button) => button.addEventListener('click', onChoice));
+        void sh.quit.then(() => finish(false));
+      });
+      buttons.forEach((button) => { button.disabled = true; });
+      if (cancelled) return null;
+      if (!roundResult && !(await pause(350))) return null;
+    }
+    return Math.round((correct / total) * 100);
   },
 
   // ------------------------------------------------------------------ stars

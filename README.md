@@ -21,15 +21,17 @@ npm run build      # production build into dist/
 | Menus | C (her story) · I (satchel) · Q (quests) · J (journal) · M (map) · Esc (settings) | top-right buttons | top-right buttons |
 
 ## What's inside
-- **5 locations:** bedroom, living room, kitchen, backyard, school. Each changes with morning / day / sunset / night (real clock, or nap in the bed to change it), weather (backyard rain), lights, particles and music.
+- **7 locations:** bedroom, living room, kitchen, bathroom, comfort room, backyard, school. Each changes with morning / day / sunset / night (real clock, or nap in the bed to change it), weather (backyard rain), lights, particles and music.
+- **Character needs:** hunger gently decreases during active play; eat at the kitchen table, or use the bottom-left shower and toilet shortcuts for animated bathroom activities.
 - **Characters:** she is the player; he follows her (or waits in rooms, or stays hidden — Settings → Gameplay). Talk, hug, give gifts.
 - **Progression:** endless levels (gentle XP curve), titles, heart tokens, a cosmetics wardrobe, affection hearts, daily streaks.
 - **Quests:** a 5-chapter opening story, then 3 new daily quests every day, a weekly quest, and special-day quests.
-- **Mini-games:** Keepsake Memory (bedroom), Cooking Together (kitchen / grill), Stargazing (backyard at night), Chalkboard Words (school), Photo Puzzle (living room).
+- **Mini-games:** Keepsake Memory (bedroom), Cooking Together (kitchen / grill), Grill Flip and Colorful Skewer challenges (backyard grill), Stargazing (backyard at night), Chalkboard Words (school), Photo Puzzle (living room).
 - **Secrets:** 6 hidden spots that sparkle when she walks close.
-- **Journal:** letters, daily messages, memories, photos, inside jokes, dates, real-life challenges, surprises, achievements (31) and secrets.
+- **Journal:** letters, daily messages, memories, photos, inside jokes, dates, real-life challenges, surprises, achievements (31) and secrets. First home moments (a meal, bedroom makeover, and pet playdate) are saved to the phone's Home gallery.
 - **Special days:** Valentine's, Christmas, New Year, Halloween, "Just Because", plus templates for your anniversary, birthdays and monthsary.
 - **Saves:** autosave + 3 local slots, backup export/import. No account or internet connection is required to play.
+- **Decorating:** collect room themes, patterned wallpapers, colorful floors, furniture palettes, and movable furniture for the bedroom, living room, and kitchen.
 - **Messages:** scripted replies run locally; the game does not use online AI.
 - **Audio:** generative music per mood plus ambience and sound effects. Real tracks can replace any of it.
 

@@ -1,5 +1,5 @@
 import Phaser from 'phaser';
-import type { Hotspot, LocationDef, LocationId, TimeOfDay, CollectibleKind, OccasionDef } from '../content/types';
+import type { Hotspot, LocationDef, LocationId, TimeOfDay, CollectibleKind, OccasionDef, NeedAction } from '../content/types';
 import { LOCATIONS } from '../content/locations';
 import { store } from '../core/store';
 import { bus } from '../core/events';
@@ -10,8 +10,10 @@ import { ensureCharacter, ensureCouple, ensureRoom, lookFor, ensureDecorLights, 
 import { COUPLE, FRAME_H } from '../art/characters';
 import { isHoldingHands } from '../systems/hands';
 import {
-  visit, interact, collect, findSecret, applyEffects, topOccasion, ctx as condCtx, startSession,
+  visit, interact, collect, findSecret, applyEffects, topOccasion, ctx as condCtx, startSession, bumpStat, toast,
 } from '../systems/game';
+import { occasionThemeForDay } from '../systems/occasions';
+import { drainHunger, restoreHunger } from '../systems/needs';
 import { checkCondition, dayFlag, pickVariant } from '../systems/conditions';
 import { playDialogue, narrate, talkToHim } from '../ui/dialogue';
 import { openPanel } from '../ui/panels';
@@ -31,6 +33,7 @@ import { collectGift } from '../pets/pets';
 import { openCare } from '../pets/care';
 import { HomeItems } from '../home/world';
 import { move as homeMove } from '../home/logic';
+import { captureHomeMemory } from '../home/memories';
 
 /** A hotspot's on-screen name (the backyard flower bed becomes our garden at level 5). */
 const hotspotLabel = (h: Hotspot) => {
@@ -40,7 +43,7 @@ const hotspotLabel = (h: Hotspot) => {
   return store.fmt(h.label);
 };
 
-interface WorldData { location: LocationId; spawnX?: number; spawnY?: number; fromLoad?: boolean; intro?: boolean }
+interface WorldData { location: LocationId; spawnX?: number; spawnY?: number; fromLoad?: boolean; intro?: boolean; needAction?: NeedAction }
 
 interface Target { kind: 'hotspot' | 'him'; x: number; label: string; h?: Hotspot }
 
@@ -63,6 +66,7 @@ export class WorldScene extends Phaser.Scene {
   private loc!: LocationDef;
   private tod!: TimeOfDay;
   private occ?: OccasionDef;
+  private occasionTheme?: OccasionDef['theme'];
   private player!: Phaser.GameObjects.Sprite;
   private him?: Phaser.GameObjects.Sprite;
   private shadows = new Map<Phaser.GameObjects.Sprite, Phaser.GameObjects.Image>();
@@ -72,6 +76,9 @@ export class WorldScene extends Phaser.Scene {
   private moveTarget: { x: number; y: number } | null = null;
   private pending: Target | null = null;
   private busy = false;
+  private playerAction = false;
+  private companionPaused = false;
+  private needUiTimer = 0;
   private leaving = false;
   private keys!: Record<string, Phaser.Input.Keyboard.Key>;
   private hotspotObjs: { h: Hotspot; zone: Phaser.GameObjects.Zone; label: Phaser.GameObjects.Text; hint?: Phaser.GameObjects.Image; revealed: boolean }[] = [];
@@ -180,7 +187,11 @@ export class WorldScene extends Phaser.Scene {
     this.lastTime = this.tod;
     this.lastDay = store.today();
     this.occ = topOccasion();
+    this.occasionTheme = this.occ ? occasionThemeForDay(this.occ, store.now()) : undefined;
     this.busy = false;
+    this.playerAction = false;
+    this.companionPaused = false;
+    this.needUiTimer = 0;
     this.leaving = false;
     this.moveTarget = null;
     this.pending = null;
@@ -262,6 +273,7 @@ export class WorldScene extends Phaser.Scene {
     // Events
     const on = (evt: string, fn: (p?: any) => void) => this.unsub.push(bus.on(evt, fn));
     on('travel', (p: { to: LocationId; spawnX?: number }) => void this.travel(p.to, p.spawnX));
+    on('need-shortcut', (action: NeedAction) => void this.useNeedShortcut(action));
     on('sleep', () => void this.reload('Zzz…', true));
     on('time', () => void this.reload());
     on('occasions', () => void this.reload());
@@ -308,7 +320,7 @@ export class WorldScene extends Phaser.Scene {
     this.time_events();
     showHud(true);
     showJoystick(true);
-    audio.playMusic(this.occ?.theme.music ?? (this.tod === 'night' && !loc.indoor ? 'night' : loc.music));
+    audio.playMusic(this.occasionTheme?.music ?? (this.tod === 'night' && !loc.indoor ? 'night' : loc.music));
     audio.setAmbience(loc.ambience, this.tod, this.isRaining());
 
     visit(loc.id);
@@ -320,7 +332,16 @@ export class WorldScene extends Phaser.Scene {
   }
 
   private async afterEnter(data: WorldData) {
-    if (!data.fromLoad && !data.intro) { bus.emit('world-ready'); return; }
+    if (!data.fromLoad && !data.intro) {
+      if (data.needAction) {
+        this.busy = true;
+        await new Promise((resolve) => setTimeout(resolve, 450));
+        const target = this.needTarget(data.needAction, this.loc);
+        await this.useTarget(target);
+      }
+      bus.emit('world-ready');
+      return;
+    }
     this.busy = true;
     await new Promise((r) => setTimeout(r, 500));
     if (data.intro) await playDialogue('intro');
@@ -506,8 +527,8 @@ export class WorldScene extends Phaser.Scene {
       this.add.rectangle(0, 0, 1280, 720, rain && this.tod !== 'night' ? 0x8090b0 : amb.tint, alpha)
         .setOrigin(0).setScrollFactor(0).setDepth(8000).setBlendMode(Phaser.BlendModes.MULTIPLY);
     }
-    if (this.occ?.theme.tint) {
-      this.add.rectangle(0, 0, 1280, 720, this.occ.theme.tint, 0.14).setOrigin(0).setScrollFactor(0).setDepth(8001)
+    if (this.occasionTheme?.tint) {
+      this.add.rectangle(0, 0, 1280, 720, this.occasionTheme.tint, 0.14).setOrigin(0).setScrollFactor(0).setDepth(8001)
         .setBlendMode(Phaser.BlendModes.SCREEN);
     }
     for (const l of this.loc.lights) {
@@ -519,7 +540,7 @@ export class WorldScene extends Phaser.Scene {
   }
 
   private isRaining() {
-    if (this.loc.indoor || this.occ?.theme.decorations.includes('snow')) return false;
+    if (this.loc.indoor || this.occasionTheme?.decorations.includes('snow')) return false;
     return rng(`rain:${store.today()}:${this.tod}`).next() < 0.18;
   }
 
@@ -559,7 +580,7 @@ export class WorldScene extends Phaser.Scene {
       }
     }
     // Occasion decorations
-    const deco = this.occ?.theme.decorations ?? [];
+    const deco = this.occasionTheme?.decorations ?? [];
     for (const d of deco) {
       switch (d) {
         case 'hearts':
@@ -592,7 +613,7 @@ export class WorldScene extends Phaser.Scene {
           this.add.image(0, 0, ensureDecorLights(this, w)).setOrigin(0).setDepth(50);
           break;
         case 'balloons': {
-          const r = rng('balloons' + this.loc.id);
+          const r = rng(`balloons:${store.today()}:${this.loc.id}`);
           const colors = [0xff8fb0, 0xffd36a, 0x7fb4e8, 0xc8a0f0, 0x86d1b0];
           for (let x = 160; x < w; x += 260 + r.next() * 200) {
             const b = this.add.image(x, 320 + r.next() * 60, 'balloon').setTint(r.pick(colors)).setDepth(40).setOrigin(0.5, 1);
@@ -601,7 +622,7 @@ export class WorldScene extends Phaser.Scene {
           break;
         }
         case 'pumpkins': {
-          const r = rng('pumpkins' + this.loc.id);
+          const r = rng(`pumpkins:${store.today()}:${this.loc.id}`);
           for (let x = 220; x < w; x += 380 + r.next() * 200) this.add.image(x, 508, 'pumpkin').setOrigin(0.5, 1).setDepth(45).setScale(0.8 + r.next() * 0.4);
           break;
         }
@@ -640,14 +661,14 @@ export class WorldScene extends Phaser.Scene {
   }
 
   // ---------------------------------------------------------------- travel
-  async travel(to: LocationId, spawnX?: number, text = '') {
+  async travel(to: LocationId, spawnX?: number, text = '', needAction?: NeedAction) {
     if (this.leaving) return;
     this.leaving = true;
     audio.sfx('door');
     store.save();
     await fadeOut(text);
     store.state.location = to;
-    this.scene.restart({ location: to, spawnX });
+    this.scene.restart({ location: to, spawnX, needAction });
   }
 
   async reload(text = '', woke = false) {
@@ -663,6 +684,24 @@ export class WorldScene extends Phaser.Scene {
   private walkToTarget(t: Target) {
     this.pending = t;
     this.moveTarget = { x: Phaser.Math.Clamp(t.x, 40, this.loc.width - 40), y: this.player.y };
+  }
+
+  private needTarget(action: NeedAction, loc: LocationDef): Target {
+    const h = loc.hotspots.find((spot) => spot.action.kind === 'need' && spot.action.action === action);
+    if (!h) throw new Error(`Missing ${action} hotspot in ${loc.id}`);
+    return { kind: 'hotspot', x: this.standX(h), label: hotspotLabel(h), h };
+  }
+
+  private useNeedShortcut(action: NeedAction) {
+    if (store.blocked || this.busy || this.leaving) return;
+    const destination: LocationId = action === 'eat' ? 'kitchen' : action === 'shower' ? 'bathroom' : 'comfortroom';
+    const loc = LOCATIONS[destination];
+    const target = this.needTarget(action, loc);
+    if (this.loc.id === destination) {
+      this.walkToTarget(target);
+      return;
+    }
+    void this.travel(destination, target.x, '', action);
   }
 
   private async useTarget(t: Target) {
@@ -759,6 +798,9 @@ export class WorldScene extends Phaser.Scene {
       case 'minigame':
         await runMinigame(a.id);
         break;
+      case 'need':
+        await this.performNeed(a.action);
+        break;
       case 'secret': {
         const isNew = findSecret(a.id);
         if (isNew) {
@@ -781,6 +823,159 @@ export class WorldScene extends Phaser.Scene {
         break;
     }
     interact(h.id);
+  }
+
+  private async performNeed(action: NeedAction) {
+    await this.animateNeed(action);
+    if (action === 'eat') {
+      restoreHunger(store.state);
+      bumpStat('meals');
+      captureHomeMemory('first-dinner');
+      toast('A little meal at the kitchen table feels just right.', 'cookie', 'good');
+    } else if (action === 'shower') {
+      bumpStat('showers');
+      toast('Fresh, clean, and ready for the day!', 'sparkle', 'good');
+    } else {
+      bumpStat('bathroomVisits');
+      toast('All refreshed and ready to go.', 'heart', 'good');
+    }
+
+    const rewardFlag = dayFlag(`need-${action}`, store.today());
+    if (!store.state.flags[rewardFlag]) {
+      store.state.flags[rewardFlag] = true;
+      applyEffects([{ type: 'xp', amount: 5 }]);
+    }
+    bus.emit('needs');
+    store.save();
+  }
+
+  private async animateNeed(action: NeedAction) {
+    const player = this.player;
+    const originalX = player.x;
+    const originalY = player.y;
+    const originalScaleX = player.scaleX;
+    const originalScaleY = player.scaleY;
+    const camera = this.cameras.main;
+    const shadow = this.shadows.get(player);
+    let privacyLayer: Phaser.GameObjects.Graphics | undefined;
+    let privacyFrame: Phaser.GameObjects.Graphics | undefined;
+    const steamPuffs: Phaser.GameObjects.Ellipse[] = [];
+    this.playerAction = true;
+    this.companionPaused = action === 'toilet';
+    if (this.companionPaused && this.him) {
+      const partnerMotion = this.mo(this.him);
+      partnerMotion.moving = false;
+      partnerMotion.vx = 0;
+      partnerMotion.vy = 0;
+      this.setStyle(this.him, null);
+      this.him.play(`${this.hisKey}-idle`, true);
+    }
+    this.mo(player).moving = false;
+    this.mo(player).vx = 0;
+    this.mo(player).vy = 0;
+    camera.stopFollow();
+    const reduced = store.settings.reducedMotion;
+    const movePlayer = (x: number) => new Promise<void>((resolve) => {
+      player.setScale(Math.abs(player.scaleX) * (x < player.x ? -1 : 1), player.scaleY);
+      player.play(`${this.herKey}-walk`, true);
+      this.tweens.add({
+        targets: player, x, duration: reduced ? 0 : 520, ease: 'Sine.easeInOut',
+        onUpdate: () => {
+          player.setDepth(player.y);
+          shadow?.setPosition(player.x, player.y - 2).setDepth(player.y - 1);
+        },
+        onComplete: () => { player.play(`${this.herKey}-idle`, true); resolve(); },
+      });
+    });
+    const pause = (duration: number) => new Promise((resolve) => setTimeout(resolve, reduced ? Math.min(duration, 450) : duration));
+    try {
+      if (action === 'eat') {
+        const icon = this.add.text(player.x, player.y - 100, '🥪', {
+          fontFamily: 'sans-serif', fontSize: '30px', stroke: '#ffffff', strokeThickness: 5,
+        }).setOrigin(0.5).setDepth(9500);
+        this.tweens.add({
+          targets: icon, y: icon.y - 18, alpha: 0.25, duration: 540, yoyo: true, repeat: 2,
+          onComplete: () => icon.destroy(),
+        });
+        await new Promise<void>((resolve) => {
+          this.tweens.add({
+            targets: player,
+            y: originalY - 5,
+            scaleY: originalScaleY * 1.03,
+            duration: reduced ? 0 : 380,
+            yoyo: true,
+            repeat: 2,
+            ease: 'Sine.easeInOut',
+            onComplete: () => resolve(),
+          });
+        });
+      } else if (action === 'shower') {
+        await movePlayer(900);
+        player.play(`${this.herKey}-idle`, true);
+        privacyLayer = this.add.graphics().setDepth(8500).setAlpha(0);
+        privacyLayer.fillStyle(0xdff8ff, 0.97);
+        privacyLayer.fillRoundedRect(748, 205, 325, 450, 26);
+        privacyLayer.fillStyle(0xffffff, 0.68);
+        privacyLayer.fillCircle(810, 315, 60);
+        privacyLayer.fillCircle(920, 278, 75);
+        privacyLayer.fillCircle(1010, 340, 66);
+        privacyLayer.fillCircle(840, 450, 72);
+        privacyLayer.fillCircle(970, 485, 85);
+        privacyLayer.lineStyle(5, 0xb7e5ee, 0.8);
+        privacyLayer.strokeRoundedRect(760, 216, 300, 431, 22);
+        await new Promise<void>((resolve) => {
+          this.tweens.add({ targets: privacyLayer, alpha: 1, duration: reduced ? 0 : 500, onComplete: () => resolve() });
+        });
+        if (!reduced) {
+          for (let i = 0; i < 6; i++) {
+            const steam = this.add.ellipse(800 + i * 43, 560 - (i % 3) * 18, 30, 58, 0xffffff, 0.38).setDepth(8501);
+            steamPuffs.push(steam);
+            this.tweens.add({
+              targets: steam, y: steam.y - 100, alpha: 0, scale: 1.5, duration: 1400 + (i % 2) * 300,
+              delay: i * 180, repeat: 1,
+              onRepeat: () => { steam.y = 560 - (i % 3) * 18; steam.alpha = 0.38; },
+              onComplete: () => steam.destroy(),
+            });
+          }
+        }
+        await pause(1800);
+        await movePlayer(originalX);
+      } else {
+        await movePlayer(680);
+        privacyFrame = this.add.graphics().setDepth(8498);
+        privacyFrame.lineStyle(12, 0xe8b6c7, 1);
+        privacyFrame.strokeRoundedRect(536, 268, 288, 384, 18);
+        privacyFrame.lineStyle(4, 0xfff8f8, 1);
+        privacyFrame.strokeRoundedRect(548, 280, 264, 360, 12);
+        privacyLayer = this.add.graphics().setPosition(680, 460).setDepth(8499).setScale(0.06, 1);
+        privacyLayer.fillStyle(0xf1d1dc, 1);
+        privacyLayer.fillRoundedRect(-130, -180, 260, 360, 12);
+        privacyLayer.fillStyle(0xe8b6c7, 1);
+        privacyLayer.fillRoundedRect(-119, -169, 238, 338, 8);
+        privacyLayer.lineStyle(3, 0xfff8f8, 0.95);
+        privacyLayer.strokeRoundedRect(-119, -169, 238, 338, 8);
+        privacyLayer.fillStyle(0xffffff, 0.8);
+        privacyLayer.fillCircle(74, 0, 7);
+        await new Promise<void>((resolve) => {
+          this.tweens.add({ targets: privacyLayer, scaleX: 1, duration: reduced ? 0 : 400, ease: 'Sine.easeInOut', onComplete: () => resolve() });
+        });
+        await pause(1800);
+        await new Promise<void>((resolve) => {
+          this.tweens.add({ targets: privacyLayer, scaleX: 0.06, duration: reduced ? 0 : 400, ease: 'Sine.easeInOut', onComplete: () => resolve() });
+        });
+        await movePlayer(originalX);
+      }
+    } finally {
+      this.tweens.killTweensOf(player);
+      player.setPosition(originalX, originalY).setScale(originalScaleX, originalScaleY).setDepth(originalY);
+      shadow?.setPosition(originalX, originalY - 2).setDepth(originalY - 1);
+      privacyLayer?.destroy();
+      privacyFrame?.destroy();
+      steamPuffs.forEach((steam) => { this.tweens.killTweensOf(steam); steam.destroy(); });
+      camera.startFollow(player, true, 0.09, 0.09, 0, 120);
+      this.playerAction = false;
+      this.companionPaused = false;
+    }
   }
 
   private burst(x: number, y: number, tex: string, n: number) {
@@ -859,7 +1054,15 @@ export class WorldScene extends Phaser.Scene {
     this.couple.update(dt);
     this.pets?.update(dt);
     const locked = store.blocked || this.busy || this.leaving || this.couple.active;
-    if (!locked) s.playSeconds += dt;
+    if (!locked) {
+      s.playSeconds += dt;
+      drainHunger(s, dt);
+      this.needUiTimer += dt;
+      if (this.needUiTimer >= 1) {
+        this.needUiTimer = 0;
+        bus.emit('needs');
+      }
+    }
 
     let vx = 0, vy = 0;
     if (!locked) {
@@ -892,16 +1095,18 @@ export class WorldScene extends Phaser.Scene {
 
     const mag = Math.hypot(vx, vy);
     if (mag > 1) { vx /= mag; vy /= mag; }
-    if (!this.couple.controls(this.player)) this.drive(this.player, this.herKey, vx * SPEED, vy * SPEED * 0.6, dt);
+    if (!this.playerAction && !this.couple.controls(this.player)) this.drive(this.player, this.herKey, vx * SPEED, vy * SPEED * 0.6, dt);
     const pm = this.mo(this.player);
     if (pm.faceT !== 0) this.facing = pm.faceT;
     const moving = pm.moving;
     s.x = Math.round(this.player.x);
     s.y = Math.round(this.player.y);
 
-    if (!this.him || !this.couple.controls(this.him)) this.updateCompanion(dt, moving);
-    this.updateHands();
-    if (!this.couple.posedBy(this.player)) this.present(this.player, dt);
+    if (!this.companionPaused) {
+      if (!this.him || !this.couple.controls(this.him)) this.updateCompanion(dt, moving);
+      this.updateHands();
+    }
+    if (!this.playerAction && !this.couple.posedBy(this.player)) this.present(this.player, dt);
     if (this.him && !this.couple.posedBy(this.him)) this.present(this.him, dt);
 
     // Collectibles

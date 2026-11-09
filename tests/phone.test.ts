@@ -244,16 +244,12 @@ describe('partner scheduler', () => {
   });
   it('sends an occasion greeting once that day', () => {
     fresh();
-    const before = store.settings.manualOccasions;
-    store.settings.manualOccasions = ['valentines'];
-    try {
-      const out = runScheduler(at(6, 12)).filter((d) => d.log.refId === 'occ:valentines');
-      expect(out).toHaveLength(1);
-      expect(out[0].message.text).toContain('Valentine');
-      expect(runScheduler(at(6, 13)).filter((d) => d.log.refId === 'occ:valentines')).toHaveLength(0);
-    } finally {
-      store.settings.manualOccasions = before;
-      store.unload();
-    }
+    const feb14 = new Date(2026, 1, 14, 12).getTime();
+    const out = runScheduler(feb14).filter((d) => d.log.refId === 'occ:valentines');
+    expect(out).toHaveLength(1);
+    expect(out[0].message.text).toContain('Valentine');
+    expect(runScheduler(feb14 + 60_000).filter((d) => d.log.refId === 'occ:valentines')).toHaveLength(0);
+    expect(runScheduler(new Date(2026, 1, 15, 12).getTime()).filter((d) => d.log.refId === 'occ:valentines')).toHaveLength(0);
+    store.unload();
   });
 });
