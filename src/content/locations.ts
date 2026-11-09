@@ -109,11 +109,12 @@ export const LOCATIONS: Record<LocationId, LocationDef> = {
         ] } },
       { id: 'living-calendar', label: 'Calendar', x: 1510, y: 190, w: 80, h: 110,
         action: { kind: 'panel', panel: 'journal', tab: 'date' } },
-      { id: 'living-kitchen', label: 'Archway → Kitchen', x: 1610, y: 170, w: 160, h: 330,
+      // The right wall's three doors sit side by side without overlapping (painted in rooms.ts).
+      { id: 'living-kitchen', label: 'Archway → Kitchen', x: 1595, y: 170, w: 115, h: 330,
         action: { kind: 'door', to: 'kitchen', spawnX: 200 } },
-      { id: 'living-bathroom', label: 'Bathroom', x: 1740, y: 170, w: 100, h: 330,
+      { id: 'living-bathroom', label: 'Bathroom', x: 1725, y: 170, w: 100, h: 330,
         action: { kind: 'door', to: 'bathroom', spawnX: 190 } },
-      { id: 'living-front', label: 'Front Door → School', x: 1830, y: 170, w: 130, h: 330,
+      { id: 'living-front', label: 'Front Door → School', x: 1845, y: 170, w: 130, h: 330,
         action: { kind: 'door', to: 'school', spawnX: 200, travelText: 'Off to school…' } },
       { id: 'secret-sofa', label: 'Something between the cushions…', x: 760, y: 430, w: 100, h: 45, hidden: true,
         action: { kind: 'secret', id: 'secret-sofa',
@@ -145,7 +146,7 @@ export const LOCATIONS: Record<LocationId, LocationDef> = {
     ],
     hotspots: [
       { id: 'kitchen-arch', label: 'Archway → Living Room', x: 30, y: 170, w: 160, h: 330, standX: 130,
-        action: { kind: 'door', to: 'livingroom', spawnX: 1690 } },
+        action: { kind: 'door', to: 'livingroom', spawnX: 1652 } },
       { id: 'kitchen-fridge', label: 'Fridge', x: 230, y: 160, w: 150, h: 340,
         action: { kind: 'panel', panel: 'journal', tab: 'joke' } },
       { id: 'secret-fridge', label: 'A magnet slightly crooked…', x: 330, y: 200, w: 40, h: 50, hidden: true,
@@ -194,11 +195,11 @@ export const LOCATIONS: Record<LocationId, LocationDef> = {
     collectibleSpots: [{ x: 300, y: 640 }, { x: 610, y: 670 }, { x: 930, y: 630 }, { x: 1150, y: 660 }],
     hotspots: [
       { id: 'bathroom-hall', label: 'Hallway → Living Room', x: 35, y: 170, w: 130, h: 330, standX: 145,
-        action: { kind: 'door', to: 'livingroom', spawnX: 1760 } },
+        action: { kind: 'door', to: 'livingroom', spawnX: 1775 } },
       { id: 'bathroom-shower', label: 'Take a shower', x: 760, y: 210, w: 300, h: 290, standX: 720,
         action: { kind: 'need', action: 'shower' } },
       { id: 'bathroom-restroom', label: 'Comfort Room → Toilet', x: 1090, y: 170, w: 150, h: 330, standX: 1110,
-        action: { kind: 'door', to: 'comfortroom', spawnX: 190 } },
+        action: { kind: 'door', to: 'comfortroom', spawnX: 1080 } },
     ],
   },
 
@@ -220,7 +221,7 @@ export const LOCATIONS: Record<LocationId, LocationDef> = {
     collectibleSpots: [{ x: 270, y: 650 }, { x: 540, y: 620 }, { x: 900, y: 670 }, { x: 1150, y: 630 }],
     hotspots: [
       { id: 'comfortroom-hall', label: 'Hallway → Living Room', x: 35, y: 170, w: 130, h: 330, standX: 145,
-        action: { kind: 'door', to: 'livingroom', spawnX: 1780 } },
+        action: { kind: 'door', to: 'livingroom', spawnX: 1775 } },
       { id: 'comfortroom-toilet', label: 'Use the toilet', x: 520, y: 335, w: 230, h: 165, standX: 485,
         action: { kind: 'need', action: 'toilet' } },
       { id: 'comfortroom-bathroom', label: 'Bathroom → Shower', x: 1090, y: 170, w: 150, h: 330, standX: 1110,
@@ -300,7 +301,7 @@ export const LOCATIONS: Record<LocationId, LocationDef> = {
     ],
     hotspots: [
       { id: 'school-exit', label: 'School Gate → Home', x: 20, y: 170, w: 130, h: 330, standX: 130,
-        action: { kind: 'door', to: 'livingroom', spawnX: 1800, travelText: 'Walking home together…' } },
+        action: { kind: 'door', to: 'livingroom', spawnX: 1910, travelText: 'Walking home together…' } },
       { id: 'school-locker', label: 'Her Locker', x: 330, y: 190, w: 80, h: 310,
         action: { kind: 'inspect', onceFlag: 'locker-{day}',
           texts: [{ text: 'A folded note slips out of the locker vent. It’s addressed to {her}.' }],

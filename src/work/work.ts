@@ -82,7 +82,7 @@ async function homecoming() {
   setTimeout(() => audio.sfx('door'), 380);
   await playDialogue({ lines: [{ speaker: 'her', text: store.swapped ? HOME_LINES.arriveAsHim : HOME_LINES.arrive, mood: 'happy' }] });
   if (store.state.location !== 'livingroom') {
-    bus.emit('travel', { to: 'livingroom', spawnX: 1700 });
+    bus.emit('travel', { to: 'livingroom', spawnX: 1910 }); // in front of the front door
   }
   toast(HOME_LINES.hint, 'heart');
   bus.emit('work:waiting');

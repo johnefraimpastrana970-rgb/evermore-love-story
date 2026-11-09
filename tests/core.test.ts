@@ -273,6 +273,22 @@ describe('content integrity', () => {
     expect(LOCATIONS.bathroom.hotspots.some((h) => h.action.kind === 'need' && h.action.action === 'shower')).toBe(true);
     expect(LOCATIONS.comfortroom.hotspots.some((h) => h.action.kind === 'need' && h.action.action === 'toilet')).toBe(true);
   });
+  it('doors never overlap, and going through one lands you at the door back', () => {
+    const stand = (h: { x: number; w: number; standX?: number }) => h.standX ?? h.x + h.w / 2;
+    for (const loc of Object.values(LOCATIONS)) {
+      const doors = loc.hotspots.filter((h) => h.action.kind === 'door').sort((a, b) => a.x - b.x);
+      for (let i = 1; i < doors.length; i++) expect(doors[i].x, `${doors[i - 1].id} overlaps ${doors[i].id}`).toBeGreaterThanOrEqual(doors[i - 1].x + doors[i - 1].w);
+      for (const d of doors) {
+        if (d.action.kind !== 'door' || d.action.spawnX === undefined) continue;
+        const there = LOCATIONS[d.action.to].hotspots.filter((h) => h.action.kind === 'door');
+        const back = there.filter((h) => h.action.kind === 'door' && h.action.to === loc.id);
+        if (!back.length) continue;
+        const sx = d.action.spawnX;
+        const nearest = there.reduce((a, b) => (Math.abs(stand(b) - sx) < Math.abs(stand(a) - sx) ? b : a));
+        expect(back, `${d.id} lands at ${nearest.id}`).toContain(nearest);
+      }
+    }
+  });
   it('dialogue next links resolve', () => {
     const special = new Set(['__chat', '__hug', '__joke', '__tease', '__deep']);
     const all = { ...DIALOGUE, ...TALK_NODES };

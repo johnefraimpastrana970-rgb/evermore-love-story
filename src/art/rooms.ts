@@ -243,10 +243,11 @@ const livingroom: RoomPainter = {
     for (let r2 = 0; r2 < 4; r2++) for (let c2 = 0; c2 < 5; c2++) ctx.fillRect(1520 + c2 * 12.5, 226 + r2 * 16, 9, 11);
     ctx.strokeStyle = '#e05a78'; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(1557, 263, 9, 0, Math.PI * 2); ctx.stroke();
     // Archway & front door
-    drawDoor(ctx, 1620, 180, 140, 320, 0, { arch: true });
-    ctx.fillStyle = 'rgba(255,255,255,0.4)'; ctx.fillRect(1650, 300, 60, 6);
-    drawDoor(ctx, 1745, 180, 85, 320, 0xe8d4bc);
-    drawDoor(ctx, 1840, 180, 110, 320, 0x9a5a4a, { glass: true });
+    // Three openings side by side; their frames (10 px each side) must not overlap. Keep in sync with locations.ts.
+    drawDoor(ctx, 1605, 180, 95, 320, 0, { arch: true });
+    ctx.fillStyle = 'rgba(255,255,255,0.4)'; ctx.fillRect(1630, 300, 50, 6);
+    drawDoor(ctx, 1735, 180, 80, 320, 0xe8d4bc);
+    drawDoor(ctx, 1855, 180, 110, 320, 0x9a5a4a, { glass: true });
   },
 };
 
