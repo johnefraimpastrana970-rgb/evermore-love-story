@@ -3,7 +3,8 @@ import type { LocationDef, TimeOfDay } from '../content/types';
 import { ROOMS, setPaintLook } from './rooms';
 import { isHouseRoom, type HouseRoom } from '../home/data';
 import { lookKey, resolveLook } from '../home/logic';
-import { buildCoupleSheet, buildSpriteSheet, COUPLE_COLS, COUPLE_FRAMES, COUPLE_W, FRAME_H, FRAME_W, FRAMES, Look } from './characters';
+import { buildCoupleSheet, buildHeadSheet, buildSpriteSheet, COUPLE_FRAMES, FRAME_H, FRAMES, HEAD_FRAMES, HEAD_H, HEAD_W, type Look, type Sheet } from './characters';
+import { HEAD_RES, anchorFor, type Face, type HeadAnchor } from './chibi/spec';
 import { drawIcon } from './icons';
 import { ellipse, glow, heartPath, makeCanvas, starPath, vgrad, hex, shade, drawStringLights } from './paint';
 import { store } from '../core/store';
@@ -19,6 +20,7 @@ export function lookFor(who: 'her' | 'him'): Look {
       outfit: outfit?.color ?? 0xfbf3f4,
       accent: cosmetic(eq.herAccent)?.color ?? 0xf4a3bb,
       style: outfit?.style ?? 'dress',
+      acc: eq.herAccent === 'accent-flower-crown' ? 'crown' : 'bow',
     };
   }
   const hisOutfit = cosmetic(eq.hisOutfit);
@@ -31,19 +33,45 @@ export function lookFor(who: 'her' | 'him'): Look {
   };
 }
 
-/** Builds (once) a character sprite sheet + animations, returns the texture key. */
+/** Head anchors per body texture key, indexed by frame (see HeadRig). */
+const ANCHORS = new Map<string, HeadAnchor[]>();
+const DEFAULT_ANCHOR = anchorFor(0);
+
+/** Where the head sits for a body sprite's current frame. */
+export function headAnchor(textureKey: string, frame: string | number): HeadAnchor {
+  return ANCHORS.get(textureKey)?.[Number(frame)] ?? DEFAULT_ANCHOR;
+}
+
+function addSheet(scene: Phaser.Scene, key: string, s: Sheet, total: number) {
+  const tex = scene.textures.addCanvas(key, s.canvas)!;
+  for (let i = 0; i < total; i++) tex.add(i, 0, (i % s.cols) * s.w, Math.floor(i / s.cols) * FRAME_H, s.w, FRAME_H);
+  ANCHORS.set(key, s.anchors);
+}
+
+const lookId = (look: Look) => `${look.who}-${look.hair.toString(16)}-${look.outfit.toString(16)}-${look.accent.toString(16)}-${look.style ?? 'dress'}-${look.acc ?? ''}`;
+
+/** Builds (once) a character's body sheet + animations, returns the texture key. */
 export function ensureCharacter(scene: Phaser.Scene, look: Look): string {
-  const key = `char2-${look.who}-${look.hair.toString(16)}-${look.outfit.toString(16)}-${look.accent.toString(16)}-${look.style ?? 'dress'}`;
-  if (!scene.textures.exists(key)) {
-    const canvas = buildSpriteSheet(look);
-    const tex = scene.textures.addCanvas(key, canvas)!;
-    for (let i = 0; i < FRAMES.total; i++) tex.add(i, 0, i * FRAME_W, 0, FRAME_W, FRAME_H);
-  }
+  const key = `char3-${lookId(look)}`;
+  if (!scene.textures.exists(key)) addSheet(scene, key, buildSpriteSheet(look), FRAMES.total);
+  else if (!ANCHORS.has(key)) ANCHORS.set(key, buildSpriteSheet(look).anchors);
   if (!scene.anims.exists(`${key}-walk`)) {
-    scene.anims.create({ key: `${key}-walk`, frames: FRAMES.walk.map((f) => ({ key, frame: f })), frameRate: 13, repeat: -1 });
-    // Three slow breaths; a blink lands in the middle one.
-    const idle = [...FRAMES.idle, ...FRAMES.idle.map((f) => (f === 3 ? FRAMES.blink : f)), ...FRAMES.idle];
-    scene.anims.create({ key: `${key}-idle`, frames: idle.map((f) => ({ key, frame: f })), frameRate: 4.5, repeat: -1 });
+    const f = (list: number[]) => list.map((frame) => ({ key, frame }));
+    scene.anims.create({ key: `${key}-walk`, frames: f(FRAMES.walk), frameRate: 13, repeat: -1 });
+    scene.anims.create({ key: `${key}-run`, frames: f(FRAMES.run), frameRate: 16, repeat: -1 });
+    scene.anims.create({ key: `${key}-idle`, frames: f(FRAMES.idle), frameRate: 4.5, repeat: -1 });
+    scene.anims.create({ key: `${key}-sit`, frames: f(FRAMES.sit), frameRate: 3, repeat: -1, yoyo: true });
+    scene.anims.create({ key: `${key}-eat`, frames: f(FRAMES.eat), frameRate: 3.2, repeat: -1 });
+  }
+  return key;
+}
+
+/** Builds (once, on first use) a head texture for one face: frames open / blink / alternate. */
+export function ensureHead(scene: Phaser.Scene, look: Look, face: Face): string {
+  const key = `head3-${lookId(look)}-${face}`;
+  if (!scene.textures.exists(key)) {
+    const tex = scene.textures.addCanvas(key, buildHeadSheet(look, face))!;
+    for (let i = 0; i < HEAD_FRAMES.total; i++) tex.add(i, 0, i * HEAD_W * HEAD_RES, 0, HEAD_W * HEAD_RES, HEAD_H * HEAD_RES);
   }
   return key;
 }
@@ -56,10 +84,8 @@ export type CoupleStyle = 'holdR' | 'holdL' | 'hug';
  */
 export function ensureCouple(scene: Phaser.Scene, key: string, look: Look) {
   const ck = `${key}-c`;
-  if (!scene.textures.exists(ck)) {
-    const tex = scene.textures.addCanvas(ck, buildCoupleSheet(look))!;
-    for (let i = 0; i < COUPLE_FRAMES.total; i++) tex.add(i, 0, (i % COUPLE_COLS) * COUPLE_W, Math.floor(i / COUPLE_COLS) * FRAME_H, COUPLE_W, FRAME_H);
-  }
+  if (!scene.textures.exists(ck)) addSheet(scene, ck, buildCoupleSheet(look), COUPLE_FRAMES.total);
+  else if (!ANCHORS.has(ck)) ANCHORS.set(ck, buildCoupleSheet(look).anchors);
   if (scene.anims.exists(`${key}-hug`)) return;
   const f = (list: number[]) => list.map((frame) => ({ key: ck, frame }));
   for (const side of ['holdR', 'holdL'] as const) {

@@ -7,6 +7,7 @@ import { COUPLE, FRAME_H } from '../art/characters';
 import { shade } from '../art/paint';
 import { resolveLook } from '../home/logic';
 import { setPrompt } from '../ui/hud';
+import type { Face } from '../art/chibi/spec';
 
 /*
  * Couple interactions in the world, as one reusable system:
@@ -35,6 +36,10 @@ export interface CoupleHost {
   setStyle(spr: Phaser.GameObjects.Sprite, style: 'hug' | null): void;
   /** Hold hands for a little while (an idle moment), even if the 🤝 button is off. */
   holdHandsFor(ms: number): void;
+  /** Show an expression on a character's face for a while. */
+  face(spr: Phaser.GameObjects.Sprite | undefined, face: Face, ms?: number): void;
+  /** Switch to the seated (breathing) animation. */
+  sitAnim(spr: Phaser.GameObjects.Sprite): void;
 }
 
 /** Hips sit this far above the feet in the sprite frame (legs below are what hangs/hides when seated). */
@@ -88,6 +93,8 @@ export class CoupleDirector {
   private swingProp?: { g: Phaser.GameObjects.Graphics; seat: Phaser.GameObjects.Graphics; angle: number };
   private front?: Phaser.GameObjects.Graphics;
   private idleT = 0;
+  /** Seconds both have stood still (never reset by idle moments). */
+  private stillT = 0;
   private ambientT = 20 + Math.random() * 15;
   private time = 0;
   private swingState: { amp: number; target: number; phase: number; pushing: boolean; lastPeak: number; stop: boolean } | null = null;
@@ -111,6 +118,8 @@ export class CoupleDirector {
   }
 
   posedBy(spr: Phaser.GameObjects.Sprite) { return this.posed.has(spr); }
+  /** How long the two of them have been standing still together. */
+  idleFor() { return this.stillT; }
   controls(spr: Phaser.GameObjects.Sprite) { return this.posed.has(spr) || this.walking.has(spr) || this.held.has(spr); }
 
   private seatPoint(angle: number): [number, number] {
@@ -172,9 +181,10 @@ export class CoupleDirector {
     });
     // Idle and ambient moments.
     const partner = this.h.partner();
-    if (!partner || this.active || store.blocked) { this.idleT = 0; return; }
+    if (!partner || this.active || store.blocked) { this.idleT = 0; this.stillT = 0; return; }
     const still = !this.h.motion(player).moving && !this.h.motion(partner).moving;
     this.idleT = still ? this.idleT + dt : 0;
+    this.stillT = still ? this.stillT + dt : 0;
     if (this.idleT >= 10) {
       this.idleT = -(8 + Math.random() * 8); // the next one comes a bit later if they keep standing there
       this.idleMoment();
@@ -294,14 +304,16 @@ export class CoupleDirector {
     const sc = 0.78;
     const st = { amp: 0.03, target: 0.3, phase: 0, pushing: false, lastPeak: 0, stop: false };
     const off = bus.on('dialogue:node', (id: string) => {
-      if (id === 'swing-high') { st.target = 0.52; this.say(partner, 'Hold on tight!'); }
-      if (id === 'swing-soft') { st.target = 0.2; this.say(partner, 'Nice and slow ♡'); }
+      if (id === 'swing-high') { st.target = 0.52; this.say(partner, 'Hold on tight!'); this.h.face(player, 'laughing', 2400); }
+      if (id === 'swing-soft') { st.target = 0.2; this.say(partner, 'Nice and slow ♡'); this.h.face(player, 'smiling', 2400); }
     });
     try {
       // Partner heads behind the swing while she hops on.
       const partnerThere = partner ? this.walk(partner, SWING.push[0], SWING.push[1]) : Promise.resolve();
       const [sx, sy] = this.seatPoint(this.swingProp.angle);
       await this.hop(player, { x: sx, y: sy + HIP * sc, rot: 0, scale: sc, crop: false, face: 1, depth: 431 });
+      this.h.sitAnim(player);
+      this.h.face(player, 'happy', 1800);
       this.swingState = st;
       await partnerThere;
       if (partner) { this.held.add(partner); this.h.motion(partner).faceT = -1; st.pushing = true; }
@@ -319,8 +331,8 @@ export class CoupleDirector {
             if (this.actionPressed() || this.time > until) { ev.remove(); done(); return; }
             if (this.time > nextLine && !store.blocked) {
               nextLine = this.time + 3 + Math.random() * 3;
-              if (Math.random() < 0.5) this.say(player, pick(['Wheee!', 'Higher! …Okay, not that high.', 'I can see the whole sky!', 'Hehe ♡']));
-              else this.say(partner, pick(['You look so happy.', 'Again? Okay ♡', 'I’ve got you.', 'Ten more pushes!']));
+              if (Math.random() < 0.5) { this.say(player, pick(['Wheee!', 'Higher! …Okay, not that high.', 'I can see the whole sky!', 'Hehe ♡'])); this.h.face(player, 'laughing', 1800); }
+              else { this.say(partner, pick(['You look so happy.', 'Again? Okay ♡', 'I’ve got you.', 'Ten more pushes!'])); this.h.face(partner, 'happy', 1800); this.h.face(player, 'blushing', 1800); }
               const [hx, hy] = this.seatPoint(this.swingProp!.angle);
               this.emote(hx, hy - 150, 'heart');
             }
@@ -340,7 +352,7 @@ export class CoupleDirector {
       if (this.dead) return;
       await this.hop(player, this.floorPose(player, 690, 560));
       this.release(player);
-      if (partner) { this.faceEachOther(); this.bounce(player); this.emote((player.x + partner.x) / 2, this.headY(player), 'heart'); }
+      if (partner) { this.faceEachOther(); this.bounce(player); this.emote((player.x + partner.x) / 2, this.headY(player), 'heart'); this.h.face(player, 'happy', 1600); this.h.face(partner, 'smiling', 1600); }
     } finally {
       off();
       this.swingState = null;
@@ -398,8 +410,12 @@ export class CoupleDirector {
       const faceP = theirs[0] > mine[0] ? 1 : -1;
       const pose = (seat: [number, number], face: number): Pose => ({ x: seat[0], y: seat[1] + HIP * spec.scale, rot: 0, scale: spec.scale, crop: !!spec.crop, face, depth: seat[1] + 5 });
       await Promise.all([this.hop(player, pose(mine, faceP)), this.hop(partner, pose(theirs, -faceP), 470)]);
+      this.h.sitAnim(player);
+      this.h.sitAnim(partner);
       if (spec.front) { this.front = this.h.scene.add.graphics().setDepth(mine[1] + 30); spec.front(this.front); }
-      // Lean on each other.
+      // Lean on each other (a cuddle).
+      this.h.face(player, 'blushing', 2600);
+      this.h.face(partner, 'smiling', 3200);
       const pp = this.posed.get(player)!, qp = this.posed.get(partner)!;
       this.h.scene.tweens.add({ targets: qp, rot: faceP * -0.12, x: qp.x - faceP * 14, duration: 700, ease: 'Sine.easeInOut' });
       this.h.scene.tweens.add({ targets: pp, rot: faceP * 0.05, duration: 700, ease: 'Sine.easeInOut' });
@@ -432,6 +448,8 @@ export class CoupleDirector {
     const star = s.add.image(x, y, 'p-star').setDepth(8500).setScale(0.6).setBlendMode(Phaser.BlendModes.ADD);
     s.tweens.add({ targets: star, x: x + 380, y: y + 160, alpha: 0, duration: 1100, ease: 'Cubic.easeIn', onComplete: () => star.destroy() });
     this.say(this.h.partner(), 'Make a wish ♡', 2600);
+    this.h.face(this.h.player(), 'surprised', 900);
+    this.h.scene.time.delayedCall(900, () => this.h.face(this.h.player(), 'happy', 2200)); // eyes closed, wishing
   }
 
   // ---------------------------------------------------------------- standing together at an activity
@@ -458,11 +476,17 @@ export class CoupleDirector {
       this.bounce(player); this.bounce(partner);
       this.say(partner, pick(['That was fun!', 'Again later? ♡', 'We make a good team.']));
       this.emote(mid, this.headY(player), 'heart');
+      this.h.face(player, 'laughing', 1600);
+      this.h.face(partner, 'happy', 1800);
     } else if (kind === 'secret') {
       this.emote(partner.x, this.headY(partner), '!', '#e8a10a');
       this.say(partner, pick(['Ooh, what is it?', 'No way!', 'You found it!']));
+      this.h.face(partner, 'surprised', 1500);
+      this.h.face(player, 'happy', 1800);
     } else if (Math.random() < 0.45) {
       this.faceEachOther();
+      this.h.face(player, 'smiling', 1600);
+      this.h.face(partner, 'smiling', 1600);
       if (Math.random() < 0.5) this.emote(mid, this.headY(player), 'heart');
       else this.tilt(partner, (player.x > partner.x ? 1 : -1) * 0.1, 1400);
     }
@@ -501,6 +525,10 @@ export class CoupleDirector {
       this.h.setStyle(player, 'hug');
       this.h.setStyle(partner, 'hug');
       audio.sfx('heart');
+      // A blush as they reach for each other, then eyes closed, smiling, for as long as the hug lasts.
+      this.h.face(player, 'blushing', 650);
+      this.h.face(partner, 'blushing', 650);
+      s.time.delayedCall(650, () => { if (this.active) { this.h.face(player, 'happy', 20000); this.h.face(partner, 'happy', 20000); } });
       // Lean in: heads together.
       const towards = Math.sign(partner.x - player.x) || 1;
       const mp = this.h.motion(player), mq = this.h.motion(partner);
@@ -531,6 +559,8 @@ export class CoupleDirector {
       this.h.setStyle(partner, null);
       mp.tiltT = 0; mq.tiltT = 0;
       this.bounce(player, 0.9); this.bounce(partner, 0.6);
+      this.h.face(player, 'shy', 1800);
+      this.h.face(partner, 'smiling', 2000);
       this.say(partner, pick(['♡', 'Better?', 'Mm. Needed that.', 'One more later?']), 1800);
     } finally {
       this.held.delete(player);
@@ -555,6 +585,9 @@ export class CoupleDirector {
           this.bounce(player, 1.1);
           this.emote(player.x, this.headY(player), '!', '#e8577d');
           this.say(partner, pick(['Boop.', 'Hey you ♡', 'Earth to {her}!']));
+          this.h.face(player, 'surprised', 800);
+          this.h.face(partner, 'happy', 2200);
+          this.h.scene.time.delayedCall(800, () => this.h.face(player, pick<Face>(['laughing', 'pouting']), 1700));
         });
       },
       () => { // lean on each other
@@ -564,10 +597,14 @@ export class CoupleDirector {
           this.tilt(partner, towards * 0.13, 2600);
           this.tilt(player, -towards * 0.08, 2600);
           this.emote((player.x + partner.x) / 2, this.headY(player), 'heart');
+          this.h.face(player, 'blushing', 2600);
+          this.h.face(partner, 'smiling', 2600);
         });
       },
       () => { // hum a tune
         this.say(partner, '♪ ~ ♪', 2600);
+        this.h.face(partner, 'happy', 2600);
+        this.h.scene.time.delayedCall(1200, () => this.h.face(player, 'smiling', 1800));
         for (let i = 0; i < 3; i++) this.h.scene.time.delayedCall(i * 500, () => this.emote(partner.x + 10 * i, this.headY(partner), '♪', '#7a5ad8'));
         this.tilt(partner, 0.07, 700);
         this.h.scene.time.delayedCall(800, () => this.tilt(partner, -0.07, 700));
@@ -578,25 +615,37 @@ export class CoupleDirector {
           this.bounce(player, 0.6); this.bounce(partner, 0.6);
           this.emote((player.x + partner.x) / 2, player.y - FRAME_H * Math.abs(player.scaleY) * 0.45, 'heart');
           this.say(player, pick(['Hehe.', '♡', 'Your hand is warm.']));
+          this.h.face(player, 'shy', 2400);
+          this.h.face(partner, 'smiling', 3600);
         });
       },
       () => { // what are you thinking about?
         this.faceEachOther();
         this.say(partner, pick(['Whatcha thinking about?', 'I like just standing here with you.', 'You’re cute when you’re thinking.', 'Let’s go somewhere?']), 2600);
-        this.h.scene.time.delayedCall(1800, () => this.say(player, pick(['Hm? Nothing~', 'You ♡', 'Maybe…', 'Okay!'])));
+        this.h.face(partner, 'smiling', 2600);
+        this.h.scene.time.delayedCall(1800, () => {
+          const line = pick(['Hm? Nothing~', 'You ♡', 'Maybe…', 'Okay!']);
+          this.say(player, line);
+          this.h.face(player, line === 'You ♡' ? 'blushing' : 'smiling', 1800);
+        });
       },
       () => { // twirl to show off the outfit
         if (reduced) { this.emote(player.x, this.headY(player), 'heart'); return; }
         const m = this.h.motion(player);
+        this.h.face(player, 'happy', 1500);
         for (let i = 1; i <= 4; i++) this.h.scene.time.delayedCall(i * 140, () => { m.faceT = -m.faceT; });
         this.h.scene.time.delayedCall(700, () => {
           this.h.burst(player.x, player.y - 80, 'p-star', 10);
           this.say(partner, pick(['Wow. Spin again?', 'Cute outfit ♡', 'Show-off ♡']));
+          this.h.face(partner, 'surprised', 700);
+          this.h.scene.time.delayedCall(700, () => this.h.face(partner, 'happy', 1500));
+          this.h.face(player, 'blushing', 1800);
         });
       },
       () => { // stretch + yawn
         this.h.motion(player).sqV += 1.4; // tall stretch
         const night = store.timeOfDay() === 'night';
+        this.h.face(player, night ? 'sleepy' : 'happy', 2200);
         this.emote(player.x + 14, this.headY(player), night ? 'z' : '~', '#7a6a9a');
         if (night) this.h.scene.time.delayedCall(900, () => this.say(partner, 'Sleepy? Bed’s that way ♡'));
       },
@@ -609,8 +658,8 @@ export class CoupleDirector {
     if (!partner) return;
     const m = this.h.motion(partner);
     const r = Math.random();
-    if (r < 0.34) { m.sqV += 1.2; this.emote(partner.x + 12, this.headY(partner), '~', '#7a6a9a'); } // stretch
-    else if (r < 0.67) { const f = m.faceT; m.faceT = -f; this.h.scene.time.delayedCall(900, () => { m.faceT = f; }); } // look around
-    else { this.emote(partner.x, this.headY(partner), '♪', '#7a5ad8'); } // hum
+    if (r < 0.34) { m.sqV += 1.2; this.emote(partner.x + 12, this.headY(partner), '~', '#7a6a9a'); this.h.face(partner, 'sleepy', 2200); } // stretch + yawn
+    else if (r < 0.67) { const f = m.faceT; m.faceT = -f; this.h.face(partner, 'idle', 900); this.h.scene.time.delayedCall(900, () => { m.faceT = f; }); } // look around
+    else { this.emote(partner.x, this.headY(partner), '♪', '#7a5ad8'); this.h.face(partner, 'happy', 1400); } // hum
   }
 }

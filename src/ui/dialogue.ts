@@ -87,6 +87,7 @@ function showLine(line: DialogueLine, literal = false): Promise<void> {
     } else {
       portrait.classList.remove('hidden');
       const mood = (line.mood ?? 'neutral') as Mood;
+      bus.emit('dialogue:mood', { who, mood }); // the chibi in the world makes the same face
       const changedSpeaker = portrait.dataset.who !== who;
       portrait.dataset.who = who;
       portrait.dataset.mood = mood;

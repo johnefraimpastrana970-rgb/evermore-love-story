@@ -1,0 +1,21 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Character Lab</title>
+  <style>
+    body { margin: 0; padding: 16px; background: #fbf4ef; font: 14px/1.4 system-ui, sans-serif; color: #4a2a3e; }
+    h2 { margin: 18px 0 6px; font-size: 15px; }
+    .row { display: flex; flex-wrap: wrap; gap: 6px; align-items: flex-end; }
+    figure { margin: 0; text-align: center; background: #fff; border-radius: 10px; padding: 4px; box-shadow: 0 1px 3px rgba(80,40,60,.12); }
+    figcaption { font-size: 11px; color: #8a6a7a; }
+    canvas { display: block; }
+  </style>
+</head>
+<body>
+  <p>Dev-only preview of the chibi rig (src/art/chibi). Run <code>npm run dev</code> and open <code>/tools/char-lab.html</code>.</p>
+  <div id="root"></div>
+  <script type="module" src="./char-lab.ts"></script>
+</body>
+</html>

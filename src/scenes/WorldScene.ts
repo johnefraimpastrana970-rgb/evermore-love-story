@@ -22,6 +22,9 @@ import { setPrompt, showHud } from '../ui/hud';
 import { showJoystick } from '../ui/joystick';
 import { locationCard, fadeOut, fadeIn, welcome } from '../ui/overlays';
 import { CoupleDirector } from './couple';
+import { HeadRig } from './heads';
+import { MOOD_FACE, type Face } from '../art/chibi/spec';
+import type { Mood } from '../content/types';
 import { openGarden } from '../garden/garden';
 import { gardenUnlocked } from '../garden/unlock';
 import { openBento } from '../work/bento';
@@ -91,6 +94,9 @@ export class WorldScene extends Phaser.Scene {
   private emoteTimer = 0;
   private motions = new Map<Phaser.GameObjects.Sprite, Motion>();
   private couple!: CoupleDirector;
+  /** Faces and head motion for both characters. */
+  private heads!: HeadRig;
+  private moodTimer = 0;
   /** How far behind her the partner walks (couple moments bring them closer for a bit). */
   private followGap = 95;
   /** Couple pose per character: holding hands (which arm) or hugging. */
@@ -170,10 +176,13 @@ export class WorldScene extends Phaser.Scene {
     // A hug is posed by the couple director; holding hands swaps in the walk/idle with a hand reaching out.
     const style = this.styles.get(spr);
     if (style === 'hug') return speed;
-    const anim = style ? `${key}-${style}-${moving ? 'walk' : 'idle'}` : moving ? `${key}-walk` : `${key}-idle`;
+    // A jog when catching up (with a little hysteresis so it doesn't flicker between walk and run).
+    const wasRunning = spr.anims.currentAnim?.key === `${key}-run`;
+    const running = !style && moving && speed > (wasRunning ? 1.12 : 1.22);
+    const anim = style ? `${key}-${style}-${moving ? 'walk' : 'idle'}` : running ? `${key}-run` : moving ? `${key}-walk` : `${key}-idle`;
     if (spr.anims.currentAnim?.key !== anim) spr.play(anim, true);
     // Walk cadence follows actual speed so feet don't slide.
-    spr.anims.timeScale = moving ? Phaser.Math.Clamp(speed * 1.05, 0.5, 1.2) : 1;
+    spr.anims.timeScale = running ? Phaser.Math.Clamp(speed * 0.75, 0.8, 1.3) : moving ? Phaser.Math.Clamp(speed * 1.05, 0.5, 1.2) : 1;
     return speed;
   }
 
@@ -219,6 +228,8 @@ export class WorldScene extends Phaser.Scene {
     this.buildEnvironment();
     this.buildHotspots();
     this.buildCollectibles();
+    this.heads = new HeadRig(this);
+    this.moodTimer = 0;
     this.buildCharacters(data);
     this.followGap = 95;
     this.couple = new CoupleDirector({
@@ -234,6 +245,8 @@ export class WorldScene extends Phaser.Scene {
       burst: (x, y, tex, n) => this.burst(x, y, tex, n),
       setStyle: (spr, style) => this.setStyle(spr, style),
       holdHandsFor: (ms) => { this.tempHoldUntil = this.time.now + ms; },
+      face: (spr, face, ms) => this.heads.show(spr, face, ms),
+      sitAnim: (spr) => { const k = spr === this.player ? this.herKey : this.hisKey; spr.play(`${k}-sit`, true); spr.anims.timeScale = 1; },
     });
     this.couple.buildProps();
     this.items = new HomeItems(this, this.loc);
@@ -274,7 +287,18 @@ export class WorldScene extends Phaser.Scene {
     const on = (evt: string, fn: (p?: any) => void) => this.unsub.push(bus.on(evt, fn));
     on('travel', (p: { to: LocationId; spawnX?: number }) => void this.travel(p.to, p.spawnX));
     on('need-shortcut', (action: NeedAction) => void this.useNeedShortcut(action));
-    on('sleep', () => void this.reload('Zzz…', true));
+    on('sleep', () => {
+      // Both drift off before the night passes.
+      this.heads.show(this.player, 'asleep', 6000);
+      this.heads.show(this.him, 'asleep', 6000);
+      void this.reload('Zzz…', true);
+    });
+    // Faces in the world mirror the conversation: each line's mood shows on whoever is speaking.
+    on('dialogue:mood', (p: { who: 'her' | 'him'; mood: Mood }) => {
+      const spr = p.who === store.playAs() ? this.player : p.who === store.partner() ? this.him : undefined;
+      this.heads.show(spr, MOOD_FACE[p.mood] ?? 'idle', 15000);
+    });
+    on('dialogue:end', () => this.heads.clear());
     on('time', () => void this.reload());
     on('occasions', () => void this.reload());
     on('settings', (patch: Record<string, unknown>) => { if ('companionMode' in patch) void this.reload(); });
@@ -313,7 +337,11 @@ export class WorldScene extends Phaser.Scene {
     on('work:home', () => this.partnerArrives());
     on('hands', (holding: boolean) => {
       if (!this.him) return;
-      if (holding) { this.couple.emoteAt(this.player, this.him); this.mo(this.him).sqV -= 0.6; }
+      if (holding) {
+        this.couple.emoteAt(this.player, this.him); this.mo(this.him).sqV -= 0.6;
+        this.heads.show(this.player, 'blushing', 2200);
+        this.heads.show(this.him, 'smiling', 2600);
+      } else this.heads.show(this.him, 'pouting', 1200);
     });
     this.events.once('shutdown', () => { this.unsub.forEach((u) => u()); this.couple.destroy(); this.pets?.destroy(); this.pets = undefined; this.items?.destroy(); this.items = undefined; this.bgImg = undefined; setPrompt(null); });
 
@@ -446,6 +474,8 @@ export class WorldScene extends Phaser.Scene {
     this.herKey = ensureCharacter(this, lookFor(store.playAs()));
     this.player = this.add.sprite(x, y, this.herKey, 0).setOrigin(0.5, 1);
     this.player.play(`${this.herKey}-idle`);
+    this.heads.attach(this.player, lookFor(store.playAs()), this.baseFace(this.player));
+    this.heads.warm(this.player, ['smiling', 'happy', 'blushing', 'surprised', 'laughing', 'shy']);
     this.addShadow(this.player);
     this.cameras.main.startFollow(this.player, true, 0.09, 0.09, 0, 120);
 
@@ -463,6 +493,14 @@ export class WorldScene extends Phaser.Scene {
     this.hisKey = ensureCharacter(this, lookFor(store.partner()));
     this.him = this.add.sprite(Phaser.Math.Clamp(x, 40, loc.width - 40), Phaser.Math.Clamp(y, loc.floorTop, loc.floorBottom), this.hisKey, 0).setOrigin(0.5, 1);
     this.him.play(`${this.hisKey}-idle`);
+    this.heads.attach(this.him, lookFor(store.partner()), 'smiling');
+    this.heads.warm(this.him, ['idle', 'happy', 'blushing', 'surprised'], 260);
+    // The hand-holding / hug frames too, a little later (they used to be built on the first touch).
+    this.time.delayedCall(2600, () => {
+      if (!this.him?.active) return;
+      ensureCouple(this, this.herKey, lookFor(store.playAs()));
+      this.time.delayedCall(400, () => { if (this.him?.active) ensureCouple(this, this.hisKey, lookFor(store.partner())); });
+    });
     this.addShadow(this.him);
     this.him.setInteractive({ useHandCursor: true, pixelPerfect: false });
     this.him.on('pointerdown', () => {
@@ -489,6 +527,8 @@ export class WorldScene extends Phaser.Scene {
     this.tweens.add({ targets: [him, sh].filter(Boolean), x: him.x + (toRight ? dist : -dist), alpha: 0, duration: 1600, ease: 'Sine.easeIn',
       onComplete: () => { him.destroy(); sh?.destroy(); } });
     this.couple.emote(him.x, him.y - FRAME_H * Math.abs(him.scaleY) - 4, '👋');
+    this.heads.show(him, 'smiling', 2000);
+    this.heads.show(this.player, 'sad', 2600);
   }
 
   /** She opens the front door: he steps in from outside. */
@@ -503,6 +543,8 @@ export class WorldScene extends Phaser.Scene {
     this.mo(him).faceT = this.player.x < him.x ? -1 : 1;
     this.mo(this.player).faceT = this.player.x < him.x ? 1 : -1;
     this.burst(him.x, him.y - 120, 'p-heart', 10);
+    this.heads.show(him, 'happy', 2400);
+    this.heads.show(this.player, 'happy', 2400);
   }
 
   private addShadow(spr: Phaser.GameObjects.Sprite) {
@@ -513,10 +555,33 @@ export class WorldScene extends Phaser.Scene {
     this.styles = new Map(); // couple frames are per outfit: rebuilt on next use
     this.herKey = ensureCharacter(this, lookFor(store.playAs()));
     this.player.setTexture(this.herKey, 0).play(`${this.herKey}-idle`);
+    this.heads.setLook(this.player, lookFor(store.playAs()));
+    this.heads.show(this.player, 'happy', 1600); // a new outfit!
     if (this.him) {
       this.hisKey = ensureCharacter(this, lookFor(store.partner()));
       this.him.setTexture(this.hisKey, 0).play(`${this.hisKey}-idle`);
+      this.heads.setLook(this.him, lookFor(store.partner()));
     }
+  }
+
+  /**
+   * The face each of them settles into when nothing in particular is happening, from the actual game state:
+   * hungry → pouting, very hungry → sad, late at night and standing around → sleepy; he smiles when she's near.
+   */
+  private baseFace(spr: Phaser.GameObjects.Sprite): Face {
+    const night = this.tod === 'night';
+    const still = !this.mo(spr).moving;
+    if (spr === this.player) {
+      const hunger = store.hasGame ? store.state.hunger : 100;
+      if (hunger < 12) return 'sad';
+      if (hunger < 25) return 'pouting';
+      if (night && still && this.couple && this.couple.idleFor() > 6) return 'sleepy';
+      if (this.holdingNow()) return 'smiling';
+      return 'idle';
+    }
+    if (night && still && this.couple && this.couple.idleFor() > 9) return 'sleepy';
+    const near = Math.abs(spr.x - this.player.x) < 170;
+    return near || this.holdingNow() ? 'smiling' : 'idle';
   }
 
   private buildLighting() {
@@ -890,25 +955,15 @@ export class WorldScene extends Phaser.Scene {
     const pause = (duration: number) => new Promise((resolve) => setTimeout(resolve, reduced ? Math.min(duration, 450) : duration));
     try {
       if (action === 'eat') {
-        const icon = this.add.text(player.x, player.y - 100, '🥪', {
-          fontFamily: 'sans-serif', fontSize: '30px', stroke: '#ffffff', strokeThickness: 5,
-        }).setOrigin(0.5).setDepth(9500);
-        this.tweens.add({
-          targets: icon, y: icon.y - 18, alpha: 0.25, duration: 540, yoyo: true, repeat: 2,
-          onComplete: () => icon.destroy(),
-        });
-        await new Promise<void>((resolve) => {
-          this.tweens.add({
-            targets: player,
-            y: originalY - 5,
-            scaleY: originalScaleY * 1.03,
-            duration: reduced ? 0 : 380,
-            yoyo: true,
-            repeat: 2,
-            ease: 'Sine.easeInOut',
-            onComplete: () => resolve(),
-          });
-        });
+        // She eats a sandwich: lifts it, takes a couple of bites (chewing, cheeks puffed), then a happy sigh.
+        player.play(`${this.herKey}-eat`, true);
+        this.heads.show(player, 'eating', 4200);
+        if (this.him) this.heads.show(this.him, 'smiling', 4200);
+        await pause(3750);
+        player.play(`${this.herKey}-idle`, true);
+        this.heads.show(player, 'happy', 1800);
+        this.couple.emote(player.x, player.y - FRAME_H * Math.abs(player.scaleY) - 6, 'heart');
+        await pause(700);
       } else if (action === 'shower') {
         await movePlayer(900);
         player.play(`${this.herKey}-idle`, true);
@@ -1108,6 +1163,12 @@ export class WorldScene extends Phaser.Scene {
     }
     if (!this.playerAction && !this.couple.posedBy(this.player)) this.present(this.player, dt);
     if (this.him && !this.couple.posedBy(this.him)) this.present(this.him, dt);
+    this.moodTimer -= dt;
+    if (this.moodTimer <= 0) {
+      this.moodTimer = 0.5;
+      this.heads.setBase(this.player, this.baseFace(this.player));
+      if (this.him) this.heads.setBase(this.him, this.baseFace(this.him));
+    }
 
     // Collectibles
     for (let i = this.collectibles.length - 1; i >= 0; i--) {
@@ -1190,7 +1251,8 @@ export class WorldScene extends Phaser.Scene {
       const dx = tx - him.x, dy = ty - him.y;
       const d = Math.hypot(dx, dy);
       if (d > 12) {
-        const sp = Math.min(SPEED * 1.08, (d - 8) * 3.2);
+        // Far behind (she ran off, or he just came in): he jogs to catch up.
+        const sp = Math.min(SPEED * (d > 260 ? 1.55 : 1.08), (d - 8) * 3.2);
         tvx = (dx / d) * sp;
         tvy = (dy / d) * sp * 0.7;
       }

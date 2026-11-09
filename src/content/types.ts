@@ -228,7 +228,8 @@ export interface CosmeticDef {
   slot: 'herHair' | 'herOutfit' | 'herAccent' | 'hisHair' | 'hisOutfit';
   color: number;
   /** Outfit shape for the in-world sprite. Her: 'dress' (default) | 'tee'. Him: 'raglan' = hoodie with pale sleeves. */
-  style?: 'dress' | 'tee' | 'raglan';
+  /** Outfit cut (see art/chibi/spec.ts): her tee/dress/pajama/sweater/cardigan/gown, his raglan/hoodie/shirt/pajama/sweater/formal. */
+  style?: 'tee' | 'dress' | 'pajama' | 'sweater' | 'cardigan' | 'gown' | 'raglan' | 'hoodie' | 'shirt' | 'formal';
   unlockLevel?: number;
   cost?: number;
   /** Only given when a special garden plant first blooms. */
