@@ -6,8 +6,8 @@ import { bus } from '../core/events';
 import { rng } from '../core/rng';
 import { audio } from '../audio/audio';
 import { AMBIENT } from '../art/paint';
-import { ensureCharacter, ensureCouple, ensureRoom, lookFor, ensureDecorLights, type CoupleStyle } from '../art/textures';
-import { COUPLE, FRAME_H } from '../art/characters';
+import { ensureActivities, ensureCharacter, ensureCouple, ensureRoom, lookFor, ensureDecorLights, type CoupleStyle } from '../art/textures';
+import { COUPLE, FRAME_H, type Activity } from '../art/characters';
 import { isHoldingHands } from '../systems/hands';
 import {
   visit, interact, collect, findSecret, applyEffects, topOccasion, ctx as condCtx, startSession, bumpStat, toast,
@@ -64,6 +64,7 @@ interface Motion {
 const newMotion = (face = 1): Motion => ({ vx: 0, vy: 0, face, faceT: face, turn: 0, lean: 0, sq: 0, sqV: 0, tilt: 0, tiltT: 0, moving: false });
 
 const SPEED = 280;
+const pickOne = <T,>(a: T[]) => a[Math.floor(Math.random() * a.length)];
 
 export class WorldScene extends Phaser.Scene {
   private loc!: LocationDef;
@@ -108,8 +109,47 @@ export class WorldScene extends Phaser.Scene {
   private bgImg?: Phaser.GameObjects.Image;
   /** Hold hands until this time (an idle moment), even with the 🤝 button off. */
   private tempHoldUntil = 0;
+  /** Hands-on activity per character (cooking, reading, …); it shows whenever they stand still. */
+  private acts = new Map<Phaser.GameObjects.Sprite, Activity>();
 
   private keyOf(spr: Phaser.GameObjects.Sprite) { return spr === this.player ? this.herKey : this.hisKey; }
+
+  /** Start an activity animation (built the first time it's needed), or stop it with null. */
+  private doing(spr: Phaser.GameObjects.Sprite | undefined, act: Activity | null) {
+    if (!spr?.active) return;
+    const key = this.keyOf(spr);
+    if (!act) {
+      if (this.acts.delete(spr)) spr.play(`${key}-idle`, true);
+      return;
+    }
+    this.setStyle(spr, null);
+    ensureActivities(this, key, lookFor(spr === this.player ? store.playAs() : store.partner()));
+    spr.anims.timeScale = 1;
+    if (act === 'pick') {
+      // Bend down and pick it, then keep holding the bouquet.
+      this.acts.set(spr, 'bouquet');
+      spr.play(`${key}-act-pick`);
+      spr.chain(`${key}-act-bouquet`);
+    } else {
+      this.acts.set(spr, act);
+      spr.play(`${key}-act-${act}`, true);
+    }
+  }
+
+  /** What she does with her hands at a hotspot (and what face she makes), if anything. */
+  private activityFor(h: Hotspot): { act?: Activity; face?: Face; lead: number; partner?: Activity; line?: string } | null {
+    const night = store.timeOfDay() === 'night';
+    switch (h.id) {
+      case 'kitchen-stove': return { act: 'cook', face: 'smiling', lead: 1700, line: pickOne(['Smells amazing ♡', 'Can I taste?', 'Chef {her}!']) };
+      case 'living-books': return { act: 'read', face: 'reading', lead: 900 };
+      case 'yard-flowers':
+        if (gardenUnlocked()) return { act: 'water', face: 'happy', lead: 1900, line: pickOne(['They look thirsty.', 'Grow big, little guys ♡']) };
+        if (store.state.flags[dayFlag('flowers-{day}', store.today())]) return null; // already picked today
+        return { act: 'pick', face: 'smiling', lead: 1500, line: pickOne(['For me? ♡', 'Pretty. Like you.']) };
+      case 'yard-grill': return { partner: 'cook', lead: 1200, line: night ? 'Midnight pancakes, coming up!' : 'Pancakes on the grill? Trust me.' };
+      default: return null;
+    }
+  }
 
   /** Change a character's couple pose; builds the couple frames the first time they're needed. */
   private setStyle(spr: Phaser.GameObjects.Sprite, style: CoupleStyle | null) {
@@ -129,7 +169,7 @@ export class WorldScene extends Phaser.Scene {
   /** Each frame: show joined hands when they're walking or standing side by side at the right distance. */
   private updateHands() {
     const him = this.him;
-    const want = this.holdingNow() && him && !this.couple.active && !this.couple.controls(him) && !this.couple.posedBy(this.player);
+    const want = this.holdingNow() && him && !this.couple.active && !this.couple.controls(him) && !this.couple.posedBy(this.player) && !this.acts.size;
     for (const spr of [this.player, him]) {
       if (!spr || this.styles.get(spr) === 'hug') continue;
       let style: CoupleStyle | null = null;
@@ -176,6 +216,13 @@ export class WorldScene extends Phaser.Scene {
     // A hug is posed by the couple director; holding hands swaps in the walk/idle with a hand reaching out.
     const style = this.styles.get(spr);
     if (style === 'hug') return speed;
+    // Busy with something in their hands: keep doing it while standing.
+    const act = this.acts.get(spr);
+    if (act && !moving) {
+      if (!spr.anims.currentAnim?.key.startsWith(`${key}-act-`)) spr.play(`${key}-act-${act}`, true);
+      spr.anims.timeScale = 1;
+      return speed;
+    }
     // A jog when catching up (with a little hysteresis so it doesn't flicker between walk and run).
     const wasRunning = spr.anims.currentAnim?.key === `${key}-run`;
     const running = !style && moving && speed > (wasRunning ? 1.12 : 1.22);
@@ -211,6 +258,7 @@ export class WorldScene extends Phaser.Scene {
     this.unsub = [];
     this.him = undefined;
     this.styles = new Map();
+    this.acts = new Map();
     this.tempHoldUntil = 0;
   }
 
@@ -239,14 +287,15 @@ export class WorldScene extends Phaser.Scene {
       partner: () => this.him,
       motion: (spr) => this.mo(spr),
       drive: (spr, vx, vy, dt) => { this.drive(spr, spr === this.player ? this.herKey : this.hisKey, vx, vy, dt); },
-      idleAnim: (spr) => { const k = spr === this.player ? this.herKey : this.hisKey; spr.play(`${k}-idle`, true); spr.anims.timeScale = 1; },
+      idleAnim: (spr) => { this.acts.delete(spr); const k = spr === this.player ? this.herKey : this.hisKey; spr.play(`${k}-idle`, true); spr.anims.timeScale = 1; },
       shadow: (spr) => this.shadows.get(spr),
       setFollowGap: (px) => { this.followGap = px; },
       burst: (x, y, tex, n) => this.burst(x, y, tex, n),
       setStyle: (spr, style) => this.setStyle(spr, style),
       holdHandsFor: (ms) => { this.tempHoldUntil = this.time.now + ms; },
       face: (spr, face, ms) => this.heads.show(spr, face, ms),
-      sitAnim: (spr) => { const k = spr === this.player ? this.herKey : this.hisKey; spr.play(`${k}-sit`, true); spr.anims.timeScale = 1; },
+      sitAnim: (spr) => { this.acts.delete(spr); const k = spr === this.player ? this.herKey : this.hisKey; spr.play(`${k}-sit`, true); spr.anims.timeScale = 1; },
+      act: (spr, a) => this.doing(spr, a),
     });
     this.couple.buildProps();
     this.items = new HomeItems(this, this.loc);
@@ -478,6 +527,14 @@ export class WorldScene extends Phaser.Scene {
     this.heads.warm(this.player, ['smiling', 'happy', 'blushing', 'surprised', 'laughing', 'shy']);
     this.addShadow(this.player);
     this.cameras.main.startFollow(this.player, true, 0.09, 0.09, 0, 120);
+    // Rooms with hands-on activities (stove, bookshelf, flowers, grill, blanket): build those frames ahead of time.
+    if (['kitchen', 'livingroom', 'backyard'].includes(loc.id)) {
+      this.time.delayedCall(3600, () => {
+        if (!this.player?.active) return;
+        ensureActivities(this, this.herKey, lookFor(store.playAs()));
+        if (loc.id === 'backyard') this.time.delayedCall(500, () => { if (this.him?.active) ensureActivities(this, this.hisKey, lookFor(store.partner())); });
+      });
+    }
 
     const mode = store.settings.companionMode;
     // He's only in the house when he isn't at work (or waiting at the door).
@@ -812,11 +869,37 @@ export class WorldScene extends Phaser.Scene {
     }
   }
 
+  /** Use a hotspot; at some she does something with her hands first (cooking, reading, watering, picking flowers). */
   private async runHotspot(h: Hotspot) {
-    const a = h.action;
     // Turn toward the object she's using.
     const hx = h.x + h.w / 2;
     if (Math.abs(hx - this.player.x) > 20) this.mo(this.player).faceT = hx > this.player.x ? 1 : -1;
+    const act = this.activityFor(h);
+    if (!act) { await this.runHotspotNow(h); return; }
+    const player = this.player, him = this.him;
+    if (act.act) {
+      this.doing(player, act.act);
+      if (act.face) this.heads.show(player, act.face, 60000);
+      if (act.act === 'pick') this.time.delayedCall(1300, () => { if (this.acts.has(player)) this.heads.show(player, 'blushing', 60000); });
+    }
+    if (act.partner && him) {
+      this.doing(him, act.partner);
+      this.heads.show(him, 'happy', 60000);
+      this.heads.show(player, 'smiling', 4000);
+    }
+    if (act.line && him) this.time.delayedCall(500, () => this.couple.say(him, act.line!, 2400));
+    try {
+      await new Promise<void>((r) => this.time.delayedCall(store.settings.reducedMotion ? Math.min(act.lead, 900) : act.lead, r));
+      await this.runHotspotNow(h);
+    } finally {
+      for (const spr of [player, him]) {
+        if (spr && this.acts.has(spr)) { this.doing(spr, null); this.heads.show(spr, 'happy', 1600); }
+      }
+    }
+  }
+
+  private async runHotspotNow(h: Hotspot) {
+    const a = h.action;
     // From level 5 the backyard flower bed is our garden.
     // His lunch box (from level 2), and the front door when he's waiting outside.
     if (h.id === 'kitchen-bento' && store.state.level >= WORK_UNLOCK) {

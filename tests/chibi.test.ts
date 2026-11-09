@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   altFrame, anchorFor, FACE_SPEC, FACES, FRAME_H, HEAD_BOTTOM, HEAD_TOP, headMotion, HER_STYLES, HIS_STYLES, MOOD_FACE, NECK, reach,
 } from '../src/art/chibi/spec';
-import { COUPLE_COLS, COUPLE_FRAMES, COUPLE_W, FRAMES, SHEET_COLS } from '../src/art/characters';
+import { ACT_COLS, ACT_FRAMES, activityPoses, COUPLE_COLS, COUPLE_FRAMES, COUPLE_W, FRAMES, SHEET_COLS } from '../src/art/characters';
 import { FRAME_W } from '../src/art/chibi/spec';
 import { COSMETICS } from '../src/content/cosmetics';
 
@@ -74,6 +74,34 @@ describe('chibi rig geometry', () => {
     expect(COUPLE_COLS * COUPLE_W).toBeLessThanOrEqual(4096);
     expect(crow * FRAME_H).toBeLessThanOrEqual(4096);
     for (const k of ['idle', 'walk', 'run', 'sit', 'eat'] as const) expect(FRAMES[k].length).toBeGreaterThan(0);
+  });
+});
+
+describe('activities', () => {
+  it('has cooking, reading, watering, picking flowers and stargazing frames, within the texture limit', () => {
+    for (const a of ['cook', 'read', 'water', 'pick', 'bouquet', 'point'] as const) expect(ACT_FRAMES[a].length, a).toBeGreaterThan(0);
+    const poses = activityPoses();
+    expect(poses.length).toBe(ACT_FRAMES.total);
+    expect(ACT_COLS * COUPLE_W).toBeLessThanOrEqual(4096);
+    expect(Math.ceil(ACT_FRAMES.total / ACT_COLS) * FRAME_H).toBeLessThanOrEqual(4096);
+    // Hand targets stay inside the (wide) activity frame.
+    const pad = (COUPLE_W - FRAME_W) / 2;
+    for (const p of poses) {
+      for (const t of [p.handL, p.handR]) {
+        if (!t || p.point) continue;
+        expect(t[0]).toBeGreaterThan(-pad);
+        expect(t[0]).toBeLessThan(FRAME_W + pad);
+        expect(t[1]).toBeGreaterThan(0);
+        expect(t[1]).toBeLessThan(FRAME_H);
+      }
+    }
+  });
+
+  it('has faces for reading and stargazing', () => {
+    expect(FACES).toContain('reading');
+    expect(FACES).toContain('starry');
+    expect(FACE_SPEC.reading.lookY).toBeGreaterThan(0); // eyes down on the book
+    expect(FACE_SPEC.starry.lookY).toBeLessThan(0); // eyes up at the sky
   });
 });
 

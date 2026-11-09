@@ -3,7 +3,7 @@ import type { Hotspot, LocationDef } from '../content/types';
 import { store } from '../core/store';
 import { bus } from '../core/events';
 import { audio } from '../audio/audio';
-import { COUPLE, FRAME_H } from '../art/characters';
+import { COUPLE, FRAME_H, type Activity } from '../art/characters';
 import { shade } from '../art/paint';
 import { resolveLook } from '../home/logic';
 import { setPrompt } from '../ui/hud';
@@ -40,6 +40,8 @@ export interface CoupleHost {
   face(spr: Phaser.GameObjects.Sprite | undefined, face: Face, ms?: number): void;
   /** Switch to the seated (breathing) animation. */
   sitAnim(spr: Phaser.GameObjects.Sprite): void;
+  /** Play an activity animation (pointing at the stars, cooking…), or stop it with null. */
+  act(spr: Phaser.GameObjects.Sprite, a: Activity | null): void;
 }
 
 /** Hips sit this far above the feet in the sprite frame (legs below are what hangs/hides when seated). */
@@ -420,8 +422,11 @@ export class CoupleDirector {
       this.h.scene.tweens.add({ targets: qp, rot: faceP * -0.12, x: qp.x - faceP * 14, duration: 700, ease: 'Sine.easeInOut' });
       this.h.scene.tweens.add({ targets: pp, rot: faceP * 0.05, duration: 700, ease: 'Sine.easeInOut' });
       this.emote((pp.x + qp.x) / 2, mine[1] - FRAME_H * spec.scale * 0.8, 'heart');
-      if (h.id === 'yard-blanket' && store.timeOfDay() === 'night') this.shootingStar();
-      await new Promise((r) => this.h.scene.time.delayedCall(1300, r)); // a moment together before the activity
+      const blanket = h.id === 'yard-blanket';
+      if (blanket) this.stargaze(player, partner);
+      if (blanket && store.timeOfDay() === 'night') this.h.scene.time.delayedCall(3300, () => { if (this.active) this.shootingStar(); });
+      // A moment together before the activity (longer on the blanket: they look at the sky first).
+      await new Promise((r) => this.h.scene.time.delayedCall(blanket ? (store.timeOfDay() === 'night' ? 5600 : 3800) : 1300, r));
       await runAction();
       if (this.dead) return; // the scene restarted (e.g. she chose to sleep)
       // Stand up.
@@ -439,6 +444,25 @@ export class CoupleDirector {
       this.release(partner);
       this.active = false;
     }
+  }
+
+  /** On the blanket: he points up at the sky (stars at night, cloud shapes by day), and they both gaze up. */
+  private stargaze(player: Phaser.GameObjects.Sprite, partner: Phaser.GameObjects.Sprite) {
+    const s = this.h.scene;
+    const night = store.timeOfDay() === 'night' || store.timeOfDay() === 'sunset';
+    s.time.delayedCall(900, () => {
+      if (!this.active || !this.posed.has(partner)) return;
+      this.h.act(partner, 'point');
+      this.say(partner, night
+        ? pick(['See that bright one? That’s yours.', 'Look, the Little Dipper!', 'So many stars tonight ♡'])
+        : pick(['That cloud looks like a bunny!', 'That one’s a heart. Totally a heart.', 'Look, a whale cloud!']), 2600);
+      this.h.face(partner, 'starry', 2800);
+      this.h.face(player, 'starry', 3000);
+    });
+    s.time.delayedCall(3300, () => {
+      if (this.posed.has(partner)) { this.h.act(partner, null); this.h.sitAnim(partner); }
+      if (this.posed.has(player)) this.h.face(player, 'blushing', 1800);
+    });
   }
 
   private shootingStar() {

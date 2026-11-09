@@ -3,7 +3,10 @@ import type { LocationDef, TimeOfDay } from '../content/types';
 import { ROOMS, setPaintLook } from './rooms';
 import { isHouseRoom, type HouseRoom } from '../home/data';
 import { lookKey, resolveLook } from '../home/logic';
-import { buildCoupleSheet, buildHeadSheet, buildSpriteSheet, COUPLE_FRAMES, FRAME_H, FRAMES, HEAD_FRAMES, HEAD_H, HEAD_W, type Look, type Sheet } from './characters';
+import {
+  ACT_FRAMES, ACTIVITIES, buildActivitySheet, buildCoupleSheet, buildHeadSheet, buildSpriteSheet, COUPLE_FRAMES, FRAME_H, FRAMES, HEAD_FRAMES, HEAD_H, HEAD_W,
+  type Activity, type Look, type Sheet,
+} from './characters';
 import { HEAD_RES, anchorFor, type Face, type HeadAnchor } from './chibi/spec';
 import { drawIcon } from './icons';
 import { ellipse, glow, heartPath, makeCanvas, starPath, vgrad, hex, shade, drawStringLights } from './paint';
@@ -94,6 +97,22 @@ export function ensureCouple(scene: Phaser.Scene, key: string, look: Look) {
   }
   scene.anims.create({ key: `${key}-hugIn`, frames: f([COUPLE_FRAMES.hugReach]), frameRate: 4, repeat: 0, duration: 260 });
   scene.anims.create({ key: `${key}-hug`, frames: f(COUPLE_FRAMES.hug), frameRate: 2.2, repeat: -1, yoyo: true });
+}
+
+/**
+ * Builds (once, on first use) the activity frames for a character whose base key is `key`.
+ * Animations: `${key}-act-cook|read|water|pick|bouquet|point` (pick plays once; the rest loop).
+ */
+export function ensureActivities(scene: Phaser.Scene, key: string, look: Look) {
+  const ak = `${key}-a`;
+  if (!scene.textures.exists(ak)) addSheet(scene, ak, buildActivitySheet(look), ACT_FRAMES.total);
+  else if (!ANCHORS.has(ak)) ANCHORS.set(ak, buildActivitySheet(look).anchors);
+  if (scene.anims.exists(`${key}-act-point`)) return;
+  const f = (list: number[]) => list.map((frame) => ({ key: ak, frame }));
+  const rate: Record<Activity, number> = { cook: 5, read: 1.8, water: 7, pick: 3.4, bouquet: 2.4, point: 2.4 };
+  for (const a of ACTIVITIES) {
+    scene.anims.create({ key: `${key}-act-${a}`, frames: f(ACT_FRAMES[a]), frameRate: rate[a], repeat: a === 'pick' ? 0 : -1, yoyo: a === 'bouquet' || a === 'point' });
+  }
 }
 
 function hashKey(s: string) {

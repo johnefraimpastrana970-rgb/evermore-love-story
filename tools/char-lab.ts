@@ -1,5 +1,8 @@
 /* Dev-only character lab: every face, outfit and animation of the chibi rig on one page (never part of a build). */
-import { buildHeadSheet, buildSpriteSheet, drawCharacter, FRAME_H, FRAME_W, FRAMES, type Look, type Pose } from '../src/art/characters';
+import {
+  ACT_FRAMES, ACTIVITIES, buildActivitySheet, buildHeadSheet, buildSpriteSheet, drawCharacter, FRAME_H, FRAME_W, FRAMES,
+  type Activity, type Look, type Pose,
+} from '../src/art/characters';
 import { FACES, HEAD_RES, HER_STYLES, HIS_STYLES, type Face } from '../src/art/chibi/spec';
 
 const root = document.getElementById('root')!;
@@ -77,6 +80,30 @@ if (want('anims')) {
           ctx.drawImage(head, a.bite ? hw * 2 : 0, 0, hw, head.height, -60, -104, FRAME_W, head.height / HEAD_RES);
           ctx.restore();
         }, FRAME_W, FRAME_H, 1);
+      }
+    }
+  }
+}
+
+if (want('acts')) {
+  const actFace: Record<Activity, Face> = { cook: 'smiling', read: 'reading', water: 'happy', pick: 'smiling', bouquet: 'blushing', point: 'starry' };
+  const lookParam = params.get('look');
+  for (const look of [HER, { ...HIM, style: 'hoodie', outfit: 0x34466e } as Look, { ...HER, style: 'sweater', outfit: 0xf3e3c6 } as Look].filter((l, i) => !lookParam || String(i) === lookParam)) {
+    const sheet = buildActivitySheet(look);
+    for (const act of ACTIVITIES.filter((a) => !params.get('act') || params.get('act')!.split(',').includes(a))) {
+      const row = section(`${look.who} ${look.style} ${act}`);
+      const head = buildHeadSheet(look, actFace[act]);
+      const hw = head.width / 3;
+      for (const i of ACT_FRAMES[act]) {
+        const a = sheet.anchors[i];
+        figure(row, `${i}`, (ctx) => {
+          ctx.drawImage(sheet.canvas, (i % sheet.cols) * sheet.w, Math.floor(i / sheet.cols) * FRAME_H, sheet.w, FRAME_H, 0, 0, sheet.w, FRAME_H);
+          ctx.save();
+          ctx.translate(sheet.w / 2 + a.x, FRAME_H + a.y);
+          ctx.rotate(a.rot);
+          ctx.drawImage(head, 0, 0, hw, head.height, -60, -104, FRAME_W, head.height / HEAD_RES);
+          ctx.restore();
+        }, sheet.w, FRAME_H, zoom);
       }
     }
   }

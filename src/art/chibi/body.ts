@@ -6,6 +6,7 @@
 import { ellipse, type Ctx } from '../paint';
 import { reach, type OutfitStyle } from './spec';
 import { hex, hg, ink, line, mix, palette, shade, sparkle, vg, type Look, type Palette } from './kit';
+import { drawProp, type Hands, type Point, type Prop } from './props';
 
 const CX = 60;
 export const HIP_Y = 172;
@@ -38,6 +39,13 @@ export interface BodyPose {
   sit?: boolean;
   /** Eating: 1 = food held at the chest, 2 = hand raised to the mouth (the head layer draws the bite). */
   eat?: 0 | 1 | 2;
+  /** Where a hand goes (frame px, before bob and lean). Near the body the forearm comes toward us (foreshortened). */
+  handL?: Point;
+  handR?: Point;
+  /** Point with this hand's index finger (-1 = left, the side away from where they face). */
+  point?: -1 | 1;
+  /** Something held in the hands (activities). */
+  prop?: Prop;
 }
 
 // ------------------------------------------------------------------ outfit table
@@ -90,8 +98,11 @@ export function drawBody(ctx: Ctx, look: Look, pose: BodyPose = {}) {
   upper();
   neck(ctx, P);
   torso(ctx, P, O, pose, phase);
-  arms(ctx, P, O, pose);
-  if (P.her) shoulderHair(ctx, P, sway);
+  // A raised (pointing) arm goes over her hair; otherwise the hair falls over the arms.
+  if (P.her && pose.point) shoulderHair(ctx, P, sway);
+  const hands = arms(ctx, P, O, pose);
+  if (P.her && !pose.point) shoulderHair(ctx, P, sway);
+  if (pose.prop) drawProp(ctx, P, pose.prop, hands);
   ctx.restore();
   ctx.restore();
 }
@@ -632,15 +643,31 @@ function smallBow(ctx: Ctx, x: number, y: number, c: number, k = 1) {
 
 // ------------------------------------------------------------------ arms & hands
 
-function arms(ctx: Ctx, P: Palette, O: Outfit, pose: BodyPose) {
+/** Draws both arms; returns where the hands ended up (frame px, in the upper body's space). */
+function arms(ctx: Ctx, P: Palette, O: Outfit, pose: BodyPose): Hands {
   const swingAmt = pose.arm ?? pose.phase ?? 0;
+  const out: Hands = { L: [0, 0], R: [0, 0] };
   for (const side of [-1, 1] as const) {
     const sx = CX + side * O.shoulder, sy = SHOULDER_Y;
     const fixed = side < 0 ? pose.armL : pose.armR;
-    let upperA: number, elbow = 0, food = false;
+    const target = side < 0 ? pose.handL : pose.handR;
+    let upperA: number, elbow = 0, food = false, fore = FORE;
     if (pose.eat && side > 0) {
       const [u, e] = pose.eat === 2 ? reach(sx, sy, CX + 6, 101, UPPER, FORE + 3, side) : reach(sx, sy, CX + 8, 120, UPPER, FORE + 3, side);
       upperA = u; elbow = e; food = pose.eat === 1;
+    } else if (target) {
+      const [tx, ty] = target;
+      if (Math.hypot(tx - sx, ty - sy) > 44) {
+        // Far: a real reach (watering, picking, pointing).
+        [upperA, elbow] = reach(sx, sy, tx, ty, UPPER, FORE + 2, side);
+      } else {
+        // Close to the body: elbow stays down at the side and the forearm comes toward us, so it looks shorter.
+        upperA = -side * 0.1;
+        const ex = sx - UPPER * Math.sin(upperA), ey = sy + UPPER * Math.cos(upperA);
+        const fx = tx - ex, fy = ty - ey;
+        fore = Math.max(6, Math.hypot(fx, fy) - 2);
+        elbow = Math.atan2(-fx, fy) - upperA || 0.001;
+      }
     } else if (fixed !== undefined) {
       upperA = -side * fixed;
     } else if (pose.run) {
@@ -653,11 +680,19 @@ function arms(ctx: Ctx, P: Palette, O: Outfit, pose: BodyPose) {
       const fwd = side * swingAmt;
       upperA = -side * (0.1 - 0.09 * fwd);
     }
-    arm(ctx, P, O.sleeve, side, sx, sy, upperA, elbow, food);
+    const pointing = pose.point === side;
+    arm(ctx, P, O.sleeve, side, sx, sy, upperA, elbow, food, fore, pointing);
+    // Where the hand is drawn (the same chain as arm()).
+    if (elbow === 0) out[side < 0 ? 'L' : 'R'] = [sx - 57 * Math.sin(upperA), sy + 57 * Math.cos(upperA)];
+    else {
+      const ex = sx - UPPER * Math.sin(upperA), ey = sy + UPPER * Math.cos(upperA);
+      out[side < 0 ? 'L' : 'R'] = [ex - (fore + 2) * Math.sin(upperA + elbow), ey + (fore + 2) * Math.cos(upperA + elbow)];
+    }
   }
+  return out;
 }
 
-function arm(ctx: Ctx, P: Palette, S: Sleeve, side: -1 | 1, sx: number, sy: number, upperA: number, elbow: number, food: boolean) {
+function arm(ctx: Ctx, P: Palette, S: Sleeve, side: -1 | 1, sx: number, sy: number, upperA: number, elbow: number, food: boolean, fore = FORE, pointing = false) {
   const skinFill = hg(ctx, -6, 6, P.skinLight, P.skin, P.skinShade);
   const skinLine = 'rgba(170,95,90,0.5)';
   const sleeveFill = (len: number) => S.sheer ? hex(S.color, 0.75) : vg(ctx, -3, len, shade(S.color, 0.08), shade(S.color, -0.1));
@@ -670,9 +705,10 @@ function arm(ctx: Ctx, P: Palette, S: Sleeve, side: -1 | 1, sx: number, sy: numb
     // forearm
     ctx.beginPath(); ctx.roundRect(-4.6, Math.min(S.len - 4, 40), 9.2, handY - Math.min(S.len - 4, 40), 4.6);
     ink(ctx, skinFill, skinLine, 1);
-    if (!S.paw) hand(ctx, P, side, 0, handY);
+    if (pointing) pointHand(ctx, P, handY);
+    else if (!S.paw) hand(ctx, P, side, 0, handY);
     sleeveSeg(ctx, S, 0, Math.min(S.len, 56), sleeveFill, sleeveLine);
-    if (S.paw) { hand(ctx, P, side, 0, handY + 1); pawCuff(ctx, S, handY - 4); }
+    if (S.paw && !pointing) { hand(ctx, P, side, 0, handY + 1); pawCuff(ctx, S, handY - 4); }
   } else {
     // upper arm
     if (S.len >= UPPER) sleeveSeg(ctx, S, 0, UPPER + 3, sleeveFill, sleeveLine, true);
@@ -684,12 +720,15 @@ function arm(ctx: Ctx, P: Palette, S: Sleeve, side: -1 | 1, sx: number, sy: numb
     ctx.rotate(elbow);
     const rest = S.len - UPPER;
     ellipse(ctx, 0, -1, S.len >= UPPER ? S.w / 2 : 4.8, 4, S.len >= UPPER ? hex(S.color) : hex(P.skin)); // elbow joint
-    ctx.beginPath(); ctx.roundRect(-4.5, -3, 9, FORE + 3, 4.5); ink(ctx, skinFill, skinLine, 1);
+    ctx.beginPath(); ctx.roundRect(-4.5, -3, 9, fore + 3, 4.5); ink(ctx, skinFill, skinLine, 1);
     if (food) heldFood(ctx, upperA + elbow);
-    hand(ctx, P, side, 0, FORE + 2);
-    if (rest > 0) {
-      sleeveSeg(ctx, S, -4, Math.min(rest, FORE), sleeveFill, sleeveLine);
-      if (S.paw) pawCuff(ctx, S, FORE - 3);
+    if (pointing) pointHand(ctx, P, fore + 2);
+    else hand(ctx, P, side, 0, fore + 2);
+    // A foreshortened forearm shows less sleeve, so the hand stays visible.
+    const sl = Math.min(rest, fore) - (fore < FORE ? 4 : 0);
+    if (rest > 0 && sl > 2) {
+      sleeveSeg(ctx, S, -4, sl, sleeveFill, sleeveLine);
+      if (S.paw && fore >= FORE) pawCuff(ctx, S, fore - 3);
     }
   }
   ctx.restore();
@@ -748,6 +787,17 @@ function hand(ctx: Ctx, P: Palette, side: number, x: number, y: number) {
   ctx.closePath();
   ink(ctx, fill, lineC, 1);
   line(ctx, 'rgba(170,95,90,0.4)', 0.8, () => { ctx.moveTo(x - 1, y + 2.2); ctx.lineTo(x - 1.2, y + 5.4); ctx.moveTo(x + 2, y + 1.8); ctx.lineTo(x + 2.2, y + 5); });
+}
+
+/** A loose fist with the index finger out along the arm (pointing at something). */
+function pointHand(ctx: Ctx, P: Palette, y: number) {
+  const fill = hg(ctx, -6, 6, P.skinLight, P.skin, P.skinShade);
+  const lineC = 'rgba(170,95,90,0.55)';
+  ctx.beginPath(); ctx.roundRect(-1.6, y + 1, 3.4, 10, 1.7);
+  ink(ctx, fill, lineC, 1);
+  ctx.beginPath(); ctx.ellipse(0, y, 4.6, 4.4, 0, 0, Math.PI * 2);
+  ink(ctx, fill, lineC, 1);
+  line(ctx, 'rgba(170,95,90,0.4)', 0.8, () => { ctx.moveTo(-3, y + 1); ctx.lineTo(1, y + 2.4); });
 }
 
 /** A sandwich held upright in the hand (the arm's rotation is undone so it stays level). */

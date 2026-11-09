@@ -24,10 +24,10 @@ export const DEFAULT_STYLE = { her: 'dress', him: 'hoodie' } as const;
 
 // ------------------------------------------------------------------ faces
 
-/** The twelve facial states, plus two used by activities (eating, asleep). */
+/** The twelve facial states, plus ones used by activities (eating, asleep, reading/cooking, stargazing). */
 export const FACES = [
   'idle', 'happy', 'smiling', 'laughing', 'sad', 'crying', 'irritated', 'pouting', 'surprised', 'sleepy', 'blushing', 'shy',
-  'eating', 'asleep',
+  'eating', 'asleep', 'reading', 'starry',
 ] as const;
 export type Face = (typeof FACES)[number];
 
@@ -82,6 +82,10 @@ export const FACE_SPEC: Record<Face, FaceSpec> = {
   shy:       { eye: 'open', lid: 0.2, lookX: -2, lookY: 1.5, brow: [-2.5, 0.5], mouth: 'wobble', blush: 0.85, extra: ['hatch', 'sweat'] },
   eating:    { eye: 'smile', brow: [-1, 0], mouth: 'chew', blush: 0.55, extra: ['puff'], alt: { mouth: 'small-o' } },
   asleep:    { eye: 'calm', brow: [0, 1], mouth: 'sleep', blush: 0.4, extra: ['bubble'], alt: { mouth: 'sleep' } },
+  /** Eyes down on what's in her hands (a book, the pan), a small content smile. */
+  reading:   { eye: 'open', lid: 0.46, lookY: 2.4, brow: [-0.8, 0.2], mouth: 'smile', blush: 0.4 },
+  /** Looking up at the sky, wide-eyed, stars in the eyes. */
+  starry:    { eye: 'open', pupil: 1.1, lookX: 1, lookY: -2.4, sparkle: true, brow: [-2.5, -1.5], mouth: 'open', blush: 0.55, extra: ['sparkle'] },
 };
 
 /** Faces whose eyes are open, so they blink. */
@@ -109,6 +113,8 @@ export function headMotion(face: Face, t: number): { x: number; y: number; rot: 
     case 'shy': return { x: 0, y: 2.5, rot: -0.1 + s(t * 1.2) * 0.012 };
     case 'eating': return { x: 0, y: Math.abs(s(t * 7)) * 0.8, rot: 0.02 };
     case 'asleep': return { x: 0, y: 4, rot: 0.12 + s(t * 0.8) * 0.02 };
+    case 'reading': return { x: 0, y: 2, rot: 0.05 + s(t * 0.6) * 0.02 };
+    case 'starry': return { x: 0, y: -1.5, rot: -0.05 + s(t * 0.8) * 0.025 };
     default: return { x: 0, y: 0, rot: s(t * 0.7) * 0.018 };
   }
 }

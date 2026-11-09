@@ -130,6 +130,62 @@ export function buildCoupleSheet(look: Look): Sheet {
   return sheet(look, poses, COUPLE_W, COUPLE_COLS);
 }
 
+// ------------------------------------------------------------------ activities (built only when first used)
+
+/** Things they do with their hands: cooking, reading, watering, picking flowers (then holding the bouquet), pointing at the stars. */
+export const ACTIVITIES = ['cook', 'read', 'water', 'pick', 'bouquet', 'point'] as const;
+export type Activity = (typeof ACTIVITIES)[number];
+const ACT_N: Record<Activity, number> = { cook: 8, read: 6, water: 6, pick: 4, bouquet: 4, point: 4 };
+/** Frame layout of the activity sheet. */
+export const ACT_FRAMES = (() => {
+  let i = 0;
+  const out = {} as Record<Activity, number[]>;
+  for (const a of ACTIVITIES) out[a] = Array.from({ length: ACT_N[a] }, () => i++);
+  return { ...out, total: i };
+})();
+export const ACT_COLS = 10;
+
+const CX = FRAME_W / 2;
+
+/** Every activity pose, in ACT_FRAMES order. */
+export function activityPoses(): BodyPose[] {
+  const poses: BodyPose[] = [];
+  // Cooking: stir the pancake round the pan (4), then toss it and catch it (4).
+  for (let k = 0; k < 4; k++) {
+    const a = (k / 4) * Math.PI * 2;
+    poses.push({ ...idlePose(k, 4), handL: [CX - 15, 134], handR: [CX + 16 + Math.cos(a) * 4, 118 + Math.sin(a) * 2.5], prop: { kind: 'pan' } });
+  }
+  const dip = [3, -4, -2, 1], toss = [0, 17, 25, 8], spin = [0, 1.4, 3.1, 5.6];
+  for (let j = 0; j < 4; j++) {
+    poses.push({ ...idlePose(j, 4), bob: j === 1 ? -2.4 : -0.8, handL: [CX - 15, 134 + dip[j]], handR: [CX + 19, 121], prop: { kind: 'pan', toss: toss[j], spin: spin[j] } });
+  }
+  // Reading: a book in both hands, breathing; now and then a page turns.
+  const page = [0, 0, 0, 0.3, 0.75, 0];
+  for (let k = 0; k < ACT_N.read; k++) {
+    const turning = page[k] > 0;
+    poses.push({ ...idlePose(k, ACT_N.read), handL: [CX - 18, 138], handR: turning ? [CX + 13, 125] : [CX + 18, 138], prop: { kind: 'book', page: page[k] } });
+  }
+  // Watering: arm out with the can tipped, drops falling.
+  for (let k = 0; k < ACT_N.water; k++) {
+    poses.push({ ...idlePose(k, ACT_N.water), lean: 0.04, handR: [CX + 46, 146], prop: { kind: 'can', k: k / ACT_N.water } });
+  }
+  // Picking a flower: bend down, reach, pluck, straighten up with it.
+  poses.push({ ...idlePose(0, 4), lean: 0.14, handR: [CX + 34, 150] });
+  poses.push({ ...idlePose(1, 4), lean: 0.28, handR: [CX + 30, 162] });
+  poses.push({ ...idlePose(2, 4), lean: 0.28, handR: [CX + 30, 158], prop: { kind: 'flower' } });
+  poses.push({ ...idlePose(3, 4), lean: 0.12, handR: [CX + 26, 140], prop: { kind: 'flower' } });
+  // Holding the bouquet close.
+  for (let k = 0; k < ACT_N.bouquet; k++) poses.push({ ...idlePose(k, ACT_N.bouquet), handL: [CX - 6, 138], handR: [CX + 6, 140], prop: { kind: 'bouquet' } });
+  // Sitting and pointing up at the stars, with the outer arm (sitting together they face each other).
+  for (let k = 0; k < ACT_N.point; k++) poses.push({ ...idlePose(k, ACT_N.point), sit: true, arm: 0.05, handL: [CX - 130, 40], point: -1 });
+  return poses;
+}
+
+/** Activity frames, as their own grid sheet (wide frames: the can and the pointing arm reach out). */
+export function buildActivitySheet(look: Look): Sheet {
+  return sheet(look, activityPoses(), COUPLE_W, ACT_COLS);
+}
+
 // ------------------------------------------------------------------ heads
 
 export const HEAD_W = FRAME_W;
