@@ -950,6 +950,31 @@ export class WorldScene extends Phaser.Scene {
     }
   }
 
+  /** The icon on the action button for what's in reach: 🚪 a door, 💬 him, 🪑 a seat, 🎮 a game, 🔍 a look… */
+  private targetIcon(t: Target): string {
+    if (t.kind === 'him') return '💬';
+    if (t.kind === 'item') {
+      const sp = t.item ? this.items?.spot(t.item) : undefined;
+      const it = sp && ITEM_INTERACT[sp.item];
+      return it?.pose === 'sit' ? '🪑' : it?.pose === 'read' ? '📖' : it?.pose === 'water' ? '💧' : '✨';
+    }
+    const h = t.h;
+    if (!h) return '✋';
+    if (h.id === 'living-front' && waitingAtDoor()) return '💗';
+    if (this.couple.hasSeat(h)) return h.id === 'bedroom-bed' ? '🛏️' : '🪑';
+    switch (h.action.kind) {
+      case 'door': return '🚪';
+      case 'dialogue': return '💬';
+      case 'minigame': return '🎮';
+      case 'panel': return '📖';
+      case 'sleep': return '🛏️';
+      case 'secret': return '🔑';
+      case 'photo': return '📷';
+      case 'need': return h.action.action === 'eat' ? '🍽️' : '🚿';
+      default: return '🔍';
+    }
+  }
+
   // ---------------------------------------------------------------- placed items (decorations & furniture)
   /** Where she stands to use a placed item: on it for seats, otherwise just beside it on the side she's coming from. */
   private itemTarget(id: string): Target | null {
@@ -1455,7 +1480,7 @@ export class WorldScene extends Phaser.Scene {
     if (!locked) {
       if (best?.label !== this.nearest?.label || best?.h !== this.nearest?.h || best?.item !== this.nearest?.item) {
         this.nearest = best;
-        setPrompt(best ? best.label : null);
+        setPrompt(best ? best.label : null, best ? this.targetIcon(best) : undefined);
         this.drawHighlight(best?.h ?? null);
       }
       const k = this.keys;

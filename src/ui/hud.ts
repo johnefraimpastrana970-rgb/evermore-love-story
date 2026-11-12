@@ -3,6 +3,7 @@ import { store } from '../core/store';
 import { bus } from '../core/events';
 import { audio } from '../audio/audio';
 import { el, esc, isTouch, uiRoot } from './dom';
+import { haptic, setActionIcon } from './joystick';
 import { iconURL } from '../art/icons';
 import { xpToNext, titleFor } from '../systems/progression';
 import { questDef, objectiveTarget } from '../systems/quests';
@@ -50,7 +51,8 @@ export function initHud() {
       <div class="hud-who">
         <b class="hud-name"></b>
         <small class="hud-title"></small>
-        <div class="hud-meta"><span class="hud-tokens"><img src="${iconURL('coin', 32)}" alt=""><b></b></span><span class="hud-time"></span></div>
+        <div class="hud-meta"><span class="hud-tokens"><img src="${iconURL('coin', 32)}" alt=""><b></b></span><span class="hud-time"></span>
+          <span class="hud-love" role="meter" aria-label="Affection" aria-valuemin="0" aria-valuemax="100"><i aria-hidden="true">♥</i><em><b></b></em><span></span></span></div>
       </div>
     </div>
     <div class="hud-needs" aria-label="Character needs">
@@ -66,7 +68,7 @@ export function initHud() {
   uiRoot().appendChild(hud);
   promptEl = el('button', 'prompt hidden');
   uiRoot().appendChild(promptEl);
-  promptEl.addEventListener('click', () => { store.joy.action = true; });
+  promptEl.addEventListener('click', () => { store.joy.action = true; haptic(); });
 
   // Hold hands (her choice): on until she lets go.
   handsEl = el('button', `hands-btn ${isTouch() ? 'touch' : ''}`, '<span>🤝</span><small>Hold hands</small>');
@@ -123,11 +125,16 @@ export function showHud(on: boolean) {
   if (on) render();
 }
 
-export function setPrompt(label: string | null) {
-  // The on-screen ♥ button pulses while something is in reach.
-  document.querySelector('.joy-act')?.classList.toggle('near', !!label);
+/**
+ * What's in reach, and what pressing the action button will do. `icon` (an emoji) shows on the touch action button
+ * and in the prompt, so she can tell at a glance: 🚪 a door, 💬 talk, 🪑 sit, ✨ use, 🔍 look…
+ */
+export function setPrompt(label: string | null, icon = '✋') {
+  setActionIcon(label ? icon : null); // the on-screen action button shows it and pulses while something is in reach
   if (!label) { promptEl.classList.add('hidden'); return; }
-  promptEl.innerHTML = isTouch() ? `<span class="key">Tap</span>${esc(label)}` : `<span class="key">E</span>${esc(label)}`;
+  promptEl.innerHTML = isTouch()
+    ? `<span class="key ico">${esc(icon)}</span><span class="lbl">${esc(label)}</span>`
+    : `<span class="key">E</span><span class="lbl">${esc(label)}</span>`;
   promptEl.classList.remove('hidden');
 }
 
@@ -159,6 +166,14 @@ function render() {
   bumpIfChanged(tok, String(s.tokens));
   bumpIfChanged(lvl, String(s.level));
   hud.querySelector('.hud-time')!.textContent = TIME_LABEL[store.timeOfDay()];
+  // Relationship: affection fills the little heart meter up to 100 ("Head Over Heels"), then keeps counting.
+  const love = hud.querySelector('.hud-love') as HTMLElement;
+  const aff = Math.max(0, Math.round(s.affection));
+  (love.querySelector('b') as HTMLElement).style.width = `${Math.min(100, aff)}%`;
+  bumpIfChanged(love.querySelector('span') as HTMLElement, String(aff));
+  love.setAttribute('aria-valuenow', String(Math.min(100, aff)));
+  love.title = `Affection with ${store.partnerName()}: ${aff}`;
+  love.classList.toggle('full', aff >= 100);
   decorEl.classList.toggle('hidden', !isHouseRoom(s.location));
   renderNeeds();
   const follows = store.settings.companionMode === 'follow' && !partnerAway();

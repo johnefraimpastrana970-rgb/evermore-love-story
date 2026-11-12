@@ -352,7 +352,7 @@ export class CoupleDirector {
       await new Promise((r) => this.h.scene.time.delayedCall(1600, r));
       await runDialogue();
       // Keep swinging until she hops off (E / Space / tap) or a little while passes.
-      setPrompt('Hop off the swing');
+      setPrompt('Hop off the swing', '⤵️');
       const stopKeys = this.listenKeys();
       const until = this.time + 16;
       let nextLine = this.time + 2.5;

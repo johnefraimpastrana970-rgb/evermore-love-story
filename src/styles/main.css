@@ -35,8 +35,11 @@
 
 * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
 html, body {
-  margin: 0; height: 100%; overflow: hidden; background: #1d1527; color: var(--ink);
+  margin: 0; height: 100%; overflow: hidden; color: var(--ink);
+  /* behind the game, where a phone or tablet is wider/taller than the scene: soft plum with a warm glow, not flat black */
+  background: radial-gradient(ellipse at 50% 120%, rgba(255, 159, 181, .18), transparent 60%), linear-gradient(180deg, #2c1d3e, #1d1527 60%, #24182f);
   font-family: var(--font); user-select: none; -webkit-user-select: none; touch-action: none;
+  -webkit-touch-callout: none; overscroll-behavior: none;
 }
 #game { position: fixed; inset: 0; }
 #game canvas { display: block; }
@@ -258,19 +261,50 @@ code { font-size: .85em; background: rgba(232, 87, 125, .1); padding: 1px 6px; b
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, .55), 0 2px 0 #c84a72;
 }
 @keyframes pop { from { transform: translateX(-50%) scale(.8); opacity: 0; } to { transform: translateX(-50%) scale(1); opacity: 1; } }
+@keyframes popR { from { transform: translateY(6px) scale(.9); opacity: 0; } to { transform: none; opacity: 1; } }
 
 /* ---------- touch controls ---------- */
 .touch-controls { position: fixed; inset: auto 0 0 0; height: 0; }
+/* Joystick: an invisible pad a little bigger than the ring catches a thumb that lands slightly off. */
+.joy-pad { position: fixed; left: calc(10px + var(--safe-l)); bottom: calc(10px + var(--safe-b)); padding: 18px 10px 18px 18px; touch-action: none; pointer-events: auto; }
 .joy {
-  position: fixed; left: calc(28px + var(--safe-l)); bottom: calc(28px + var(--safe-b)); width: 140px; height: 140px; border-radius: 50%;
-  background: radial-gradient(circle, rgba(255, 255, 255, .25), rgba(255, 255, 255, .08)); border: 3px solid rgba(255, 255, 255, .45); touch-action: none;
+  position: relative; width: 140px; height: 140px; border-radius: 50%; touch-action: none; pointer-events: none;
+  background: radial-gradient(circle at 50% 40%, rgba(255, 255, 255, .34), rgba(201, 182, 242, .22) 62%, rgba(125, 100, 184, .2));
+  box-shadow: inset 0 0 0 3px rgba(255, 255, 255, .55), inset 0 -6px 14px rgba(125, 100, 184, .25), 0 6px 18px rgba(40, 15, 60, .22);
+  backdrop-filter: blur(2px); transition: box-shadow .2s, transform .2s;
 }
-.joy-knob { position: absolute; left: 50%; top: 50%; width: 60px; height: 60px; margin: -30px; border-radius: 50%; background: linear-gradient(#fff, #ffd6e2); box-shadow: 0 4px 12px rgba(0, 0, 0, .25); }
+.joy.held { transform: scale(1.03); box-shadow: inset 0 0 0 3px rgba(255, 214, 226, .9), inset 0 -6px 14px rgba(125, 100, 184, .3), 0 8px 22px rgba(232, 87, 125, .28); }
+/* a soft glow on the rim, in the direction she's walking */
+.joy-dir { position: absolute; inset: 0; border-radius: 50%; opacity: 0; transition: opacity .12s;
+  background: conic-gradient(from 60deg, transparent 0 0, rgba(255, 159, 181, .75) 30deg, transparent 60deg 360deg);
+  -webkit-mask: radial-gradient(circle, transparent 58%, #000 60%); mask: radial-gradient(circle, transparent 58%, #000 60%); }
+.joy-knob { position: absolute; left: 50%; top: 50%; width: 60px; height: 60px; margin: -30px; border-radius: 50%;
+  background: radial-gradient(circle at 40% 32%, #fff 0 22%, #ffe6ee 50%, #ffc4d4 100%);
+  box-shadow: inset 0 -4px 0 rgba(232, 87, 125, .22), inset 0 2px 0 #fff, 0 5px 12px rgba(60, 20, 70, .3); }
 .joy-act {
   position: fixed; right: calc(32px + var(--safe-r)); bottom: calc(40px + var(--safe-b)); width: 88px; height: 88px; border-radius: 50%; border: 0;
-  background: linear-gradient(#ff8fb0, #e8577d); color: #fff; font-size: 40px; box-shadow: 0 6px 20px rgba(232, 87, 125, .5);
+  background: radial-gradient(circle at 42% 32%, #ffc2d2, #ff8fab 55%, #e8577d); color: #fff; font-size: 40px; line-height: 1;
+  box-shadow: inset 0 3px 0 rgba(255, 255, 255, .55), inset 0 -5px 0 rgba(170, 40, 80, .28), 0 5px 0 #c84a72, 0 10px 22px rgba(232, 87, 125, .4);
+  touch-action: none; display: grid; place-items: center;
 }
-.joy-act:active { transform: scale(.92); }
+.joy-act .joy-ico { display: block; filter: drop-shadow(0 2px 2px rgba(150, 30, 70, .35)); transition: transform .2s var(--spring); }
+/* with something in reach, its icon sits on a light disc so every emoji reads on the pink (💬 is white) */
+.joy-act.near .joy-ico { width: 62%; aspect-ratio: 1; border-radius: 50%; display: grid; place-items: center; font-size: .78em; filter: none;
+  background: radial-gradient(circle at 45% 35%, #fff, #ffeef3); box-shadow: inset 0 -3px 0 rgba(232, 87, 125, .18), 0 2px 4px rgba(150, 30, 70, .25); }
+.joy-act.near .joy-ico { transform: scale(.92); }
+.joy-act:active { transform: translateY(4px) scale(.96); box-shadow: inset 0 3px 6px rgba(150, 30, 70, .3), 0 1px 0 #c84a72, 0 4px 10px rgba(232, 87, 125, .3); }
+.joy-act.tap .joy-ico { animation: icoPop .3s var(--spring); }
+@keyframes icoPop { 40% { transform: scale(1.25); } }
+/* The prompt on touch: an icon chip (the same one as on the action button) and the label, which can shorten. */
+.prompt .key.ico { padding: 1px 9px; font-size: 18px; line-height: 1.3; background: linear-gradient(180deg, #fff3f7, #ffdbe6); box-shadow: inset 0 0 0 1.5px #ffb6c8, 0 2px 0 #f0a0b8; }
+.prompt .lbl { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+/* Relationship: a little heart meter under her name */
+.hud-love { display: inline-flex; align-items: center; gap: 4px; font-size: 12px; font-weight: 600; color: var(--rose-deep); }
+.hud-love i { font-style: normal; color: #ff7f9e; font-size: 13px; line-height: 1; filter: drop-shadow(0 1px 0 #fff); }
+.hud-love em { width: 46px; height: 7px; border-radius: 999px; background: #efe3f8; box-shadow: inset 0 1px 2px rgba(125, 100, 184, .35); overflow: hidden; }
+.hud-love em b { display: block; height: 100%; border-radius: inherit; background: linear-gradient(90deg, #ffb6c8, #ff7f9e); transition: width .6s ease; }
+.hud-love.full i { animation: beat 1.4s ease-in-out infinite; }
+.hud-love.full em b { background: linear-gradient(90deg, #ff9fb5, #e8577d, #c9b8f4); }
 
 /* ---------- hold hands ---------- */
 .hands-btn {
@@ -291,7 +325,13 @@ code { font-size: .85em; background: rgba(232, 87, 125, .1); padding: 1px 6px; b
 @media (pointer: coarse) {
   /* beside the joystick (not above it, where they covered doors at the left end of rooms) */
   .hud-needs { left: calc(182px + var(--safe-l)); bottom: calc(26px + var(--safe-b)); }
-  .prompt { bottom: calc(118px + var(--safe-b)); }
+  /* Right above the action button it belongs to (tapping either does the same thing), not in the middle of the
+     screen where the camera keeps her. */
+  .prompt { left: auto; right: calc(20px + var(--safe-r)); transform: none; bottom: calc(140px + var(--safe-b)); max-width: min(46vw, 330px);
+    padding: 6px 16px 6px 6px; animation: popR .25s ease-out;
+    /* a label here: the action button below it is what she presses, and taps go through to whatever is behind
+       (e.g. the door at the end of the room) */
+    pointer-events: none !important; }
 }
 
 /* ---------- toasts ---------- */
@@ -709,8 +749,11 @@ li.done .ck { background: var(--mint); border-color: var(--mint); color: #fff; }
 .welcome .msg { background: #fff; border-radius: 16px; padding: 10px 16px; margin: 10px 0; box-shadow: inset 0 0 0 2px #f6dbe4; }
 .welcome .msg p { font-family: var(--hand); font-size: 24px; margin: 4px 0; }
 .welcome .new-q { color: var(--ink-soft); font-size: 14px; }
-.rotate-hint { position: fixed; inset: 0; background: #1d1527; color: #ffd6e2; display: grid; place-content: center; text-align: center; z-index: 200; font-size: 18px; }
-.rotate-hint div { font-size: 54px; animation: beat 2s infinite; }
+.rotate-hint { position: fixed; inset: 0; color: #fff3f8; display: grid; place-content: center; justify-items: center; text-align: center; z-index: 200; font-size: 18px; padding: 24px;
+  background: radial-gradient(circle at 50% 38%, rgba(255, 159, 181, .35), transparent 55%), linear-gradient(170deg, #4a2f66, #2a1b3c 70%); }
+.rotate-hint div { font-size: 54px; animation: beat 2s infinite; width: 120px; height: 120px; display: grid; place-items: center; border-radius: 34px;
+  background: var(--surface); box-shadow: var(--bevel); margin-bottom: 18px; color: var(--rose); }
+.rotate-hint p { max-width: 260px; line-height: 1.4; margin: 0; }
 
 /* ==========================================================================
    Interaction feedback & micro-animations
@@ -792,10 +835,14 @@ button:focus:not(:focus-visible) { outline: none; }
 
 /* interaction prompt breathes so it reads as tappable */
 .prompt:not(.hidden) { animation: pop .25s ease-out, promptPulse 2.4s ease-in-out .3s infinite; }
-@keyframes promptPulse { 0%, 100% { box-shadow: var(--shadow), 0 0 0 0 rgba(232, 87, 125, .35); } 50% { box-shadow: var(--shadow), 0 0 0 8px rgba(232, 87, 125, 0); } }
+@media (pointer: coarse) { .prompt:not(.hidden) { animation: popR .25s ease-out, promptPulse 2.4s ease-in-out .3s infinite; } }
+@keyframes promptPulse { 0%, 100% { box-shadow: var(--bevel), 0 0 0 0 rgba(232, 87, 125, .35); } 50% { box-shadow: var(--bevel), 0 0 0 8px rgba(232, 87, 125, 0); } }
 .joy-act { transition: transform .2s var(--spring), box-shadow .2s; }
 .joy-act.near { animation: actPulse 1.6s ease-in-out infinite; }
-@keyframes actPulse { 0%, 100% { box-shadow: 0 6px 20px rgba(232, 87, 125, .5), 0 0 0 0 rgba(255, 143, 176, .6); } 50% { box-shadow: 0 6px 20px rgba(232, 87, 125, .5), 0 0 0 14px rgba(255, 143, 176, 0); } }
+@keyframes actPulse {
+  0%, 100% { box-shadow: inset 0 3px 0 rgba(255, 255, 255, .55), inset 0 -5px 0 rgba(170, 40, 80, .28), 0 5px 0 #c84a72, 0 10px 22px rgba(232, 87, 125, .4), 0 0 0 0 rgba(255, 159, 181, .6); }
+  50% { box-shadow: inset 0 3px 0 rgba(255, 255, 255, .55), inset 0 -5px 0 rgba(170, 40, 80, .28), 0 5px 0 #c84a72, 0 10px 22px rgba(232, 87, 125, .4), 0 0 0 14px rgba(255, 159, 181, 0); }
+}
 
 /* title menu */
 .mbtn { position: relative; overflow: hidden; }
@@ -936,9 +983,10 @@ input[type=range]:active::-webkit-slider-thumb { transform: scale(1.25); }
 /* Small touch screens (phones in landscape): the bottom-strip layout, sized to the smaller joystick and action button. */
 @media (pointer: coarse) and (max-height: 520px) {
   .hud-needs { left: calc(156px + var(--safe-l)); bottom: calc(18px + var(--safe-b)); }
-  .joy { left: calc(20px + var(--safe-l)); bottom: calc(12px + var(--safe-b)); width: 108px; height: 108px; }
+  .joy-pad { left: calc(2px + var(--safe-l)); bottom: calc(-6px + var(--safe-b)); }
+  .joy { width: 108px; height: 108px; }
   .hands-btn.touch { right: calc(114px + var(--safe-r)); bottom: calc(20px + var(--safe-b)); width: 58px; }
-  .prompt { bottom: calc(96px + var(--safe-b)); }
+  .prompt { bottom: calc(124px + var(--safe-b)); font-size: 14px; }
 }
 @media (max-width: 760px) {
   .char-wrap, .inv-wrap { grid-template-columns: 1fr; overflow: auto; }
