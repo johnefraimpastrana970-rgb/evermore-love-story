@@ -280,14 +280,18 @@ code { font-size: .85em; background: rgba(232, 87, 125, .1); padding: 1px 6px; b
 }
 .hands-btn span { font-size: 28px; line-height: 1; transition: transform .3s var(--spring); }
 .hands-btn small { font-size: 10px; font-weight: 600; margin-top: 2px; white-space: nowrap; }
-.hands-btn.touch { right: calc(44px + var(--safe-r)); bottom: calc(146px + var(--safe-b)); width: 64px; }
+/* Touch screens: these sit in the bottom strip, beside the action button, never over the walls: doors at the very
+   ends of a room (the front door, the school gate) are right where buttons stacked up the side used to be. */
+.hands-btn.touch { right: calc(132px + var(--safe-r)); bottom: calc(34px + var(--safe-b)); width: 64px; }
 .hands-btn.on { background: linear-gradient(#ffd6e2, #ffb3c8); color: var(--rose-deep); box-shadow: 0 0 0 3px rgba(255, 255, 255, .8), 0 6px 18px rgba(232, 87, 125, .35); }
 .hands-btn.on span { transform: scale(1.12) rotate(-6deg); }
 .hands-btn:active { transform: scale(.92); }
 .hands-btn.hidden { display: none; }
 
 @media (pointer: coarse) {
-  .hud-needs { bottom: calc(178px + var(--safe-b)); }
+  /* beside the joystick (not above it, where they covered doors at the left end of rooms) */
+  .hud-needs { left: calc(182px + var(--safe-l)); bottom: calc(26px + var(--safe-b)); }
+  .prompt { bottom: calc(118px + var(--safe-b)); }
 }
 
 /* ---------- toasts ---------- */
@@ -928,6 +932,13 @@ input[type=range]:active::-webkit-slider-thumb { transform: scale(1.25); }
   .menu-btns { gap: 8px; }
   .mbtn { padding: 8px 22px; font-size: 17px; }
   .lu-card { padding: 20px 30px; }
+}
+/* Small touch screens (phones in landscape): the bottom-strip layout, sized to the smaller joystick and action button. */
+@media (pointer: coarse) and (max-height: 520px) {
+  .hud-needs { left: calc(156px + var(--safe-l)); bottom: calc(18px + var(--safe-b)); }
+  .joy { left: calc(20px + var(--safe-l)); bottom: calc(12px + var(--safe-b)); width: 108px; height: 108px; }
+  .hands-btn.touch { right: calc(114px + var(--safe-r)); bottom: calc(20px + var(--safe-b)); width: 58px; }
+  .prompt { bottom: calc(96px + var(--safe-b)); }
 }
 @media (max-width: 760px) {
   .char-wrap, .inv-wrap { grid-template-columns: 1fr; overflow: auto; }
