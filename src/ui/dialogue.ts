@@ -293,10 +293,18 @@ async function runChoiceAction(action: NonNullable<DialogueChoice['action']>, ar
   }
 }
 
+/**
+ * Sleep until a time of day. The world may `claim` the sleep to play bedtime first (walk to bed, lie down, tuck in)
+ * and then call `apply` itself; if nothing claims it, the time changes right away.
+ */
 export function sleepUntil(arg: string) {
-  if (arg === 'real') store.updateSettings({ timeMode: 'real' });
-  else store.updateSettings({ timeMode: 'manual', manualTime: arg as any });
-  bus.emit('sleep');
+  const apply = () => {
+    if (arg === 'real') store.updateSettings({ timeMode: 'real' });
+    else store.updateSettings({ timeMode: 'manual', manualTime: arg as any });
+  };
+  let claimed = false;
+  bus.emit('sleep', { apply, claim: () => { claimed = true; } });
+  if (!claimed) apply();
 }
 
 export function narrate(text: string) {

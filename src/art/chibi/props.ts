@@ -14,7 +14,9 @@ export type Prop =
   /** Watering can in the right hand; `k` 0..1 is the phase of the falling drops. */
   | { kind: 'can'; k: number }
   | { kind: 'flower' }
-  | { kind: 'bouquet' };
+  | { kind: 'bouquet' }
+  /** A phone held in both hands, screen toward the face; `glow` 0..1 cycles what's on the screen. */
+  | { kind: 'phone'; glow: number };
 
 export type Point = [number, number];
 export interface Hands { L: Point; R: Point }
@@ -26,7 +28,23 @@ export function drawProp(ctx: Ctx, P: Palette, prop: Prop, hands: Hands) {
     case 'can': return can(ctx, P, hands.R, prop.k);
     case 'flower': return flower(ctx, P, hands.R);
     case 'bouquet': return bouquet(ctx, P, hands);
+    case 'phone': return phone(ctx, P, hands, prop.glow);
   }
+}
+
+function phone(ctx: Ctx, P: Palette, { L, R }: Hands, glow: number) {
+  const cx = (L[0] + R[0]) / 2, y = Math.min(L[1], R[1]) - 7;
+  const c = P.her ? mix(P.accent, 0xffffff, 0.2) : 0x4a5a78;
+  // the back of the case (we see it from the front) with a little camera, tipped toward the face
+  ctx.beginPath(); ctx.roundRect(cx - 7, y - 6, 14, 20, 3);
+  ink(ctx, vg(ctx, y - 6, y + 14, shade(c, 0.08), shade(c, -0.14)), shade(c, -0.5), 1.1);
+  ellipse(ctx, cx - 3.4, y - 2.4, 1.6, 1.6, '#2a2a34');
+  if (P.her) { ctx.fillStyle = 'rgba(255,255,255,0.8)'; heartPath(ctx, cx + 1, y + 4, 6); ctx.fill(); }
+  // the screen's glow on the chin side: light that comes and goes as things scroll by
+  ctx.fillStyle = `rgba(190,225,255,${0.18 + 0.12 * Math.sin(glow * Math.PI * 2)})`;
+  ctx.beginPath(); ctx.ellipse(cx, y - 9, 9, 3.4, 0, 0, Math.PI * 2); ctx.fill();
+  grip(ctx, P, L, -1);
+  grip(ctx, P, R, 1);
 }
 
 /** Fingers wrapped over whatever the hand holds. */

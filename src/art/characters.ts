@@ -132,10 +132,17 @@ export function buildCoupleSheet(look: Look): Sheet {
 
 // ------------------------------------------------------------------ activities (built only when first used)
 
-/** Things they do with their hands: cooking, reading, watering, picking flowers (then holding the bouquet), pointing at the stars. */
-export const ACTIVITIES = ['cook', 'read', 'water', 'pick', 'bouquet', 'point'] as const;
+/**
+ * Things they do with their hands: cooking, reading, watering, picking flowers (then holding the bouquet), pointing
+ * at the stars, eating at the table (seated: reach for the plate, lift, two bites, lower, back to the plate) and
+ * looking at a phone.
+ */
+export const ACTIVITIES = ['cook', 'read', 'water', 'pick', 'bouquet', 'point', 'meal', 'phone'] as const;
 export type Activity = (typeof ACTIVITIES)[number];
-const ACT_N: Record<Activity, number> = { cook: 8, read: 6, water: 6, pick: 4, bouquet: 4, point: 4 };
+const ACT_N: Record<Activity, number> = { cook: 8, read: 6, water: 6, pick: 4, bouquet: 4, point: 4, meal: 6, phone: 4 };
+/** One full bite of the meal animation (reach, lift, bite, bite, lower, back) at its frame rate, in ms. */
+export const MEAL_RATE = 3;
+export const MEAL_CYCLE_MS = (ACT_N.meal / MEAL_RATE) * 1000;
 /** Frame layout of the activity sheet. */
 export const ACT_FRAMES = (() => {
   let i = 0;
@@ -178,6 +185,16 @@ export function activityPoses(): BodyPose[] {
   for (let k = 0; k < ACT_N.bouquet; k++) poses.push({ ...idlePose(k, ACT_N.bouquet), handL: [CX - 6, 138], handR: [CX + 6, 140], prop: { kind: 'bouquet' } });
   // Sitting and pointing up at the stars, with the outer arm (sitting together they face each other).
   for (let k = 0; k < ACT_N.point; k++) poses.push({ ...idlePose(k, ACT_N.point), sit: true, arm: 0.05, handL: [CX - 130, 40], point: -1 });
+  // Eating at the table, seated, the table on the right (+x): reach to the plate, lift the food, two bites (the head
+  // dips into each bite), lower it, put it back. The other hand rests on the lap.
+  const meal: (Pick<BodyPose, 'eat' | 'handR'>)[] = [
+    { handR: [CX + 58, 127] }, { eat: 1 }, { eat: 2 }, { eat: 2 }, { eat: 1 }, { handR: [CX + 52, 125] },
+  ];
+  meal.forEach((m, k) => poses.push({ ...idlePose(k, ACT_N.meal), sit: true, arm: 0.05, handL: [CX - 15, 158], ...m }));
+  // Looking at a phone held in both hands; the thumb taps now and then.
+  for (let k = 0; k < ACT_N.phone; k++) {
+    poses.push({ ...idlePose(k, ACT_N.phone), handL: [CX - 5, 137], handR: k === 2 ? [CX + 7, 131] : [CX + 5, 135], prop: { kind: 'phone', glow: k / ACT_N.phone } });
+  }
   return poses;
 }
 

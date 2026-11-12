@@ -79,7 +79,7 @@ describe('chibi rig geometry', () => {
 
 describe('activities', () => {
   it('has cooking, reading, watering, picking flowers and stargazing frames, within the texture limit', () => {
-    for (const a of ['cook', 'read', 'water', 'pick', 'bouquet', 'point'] as const) expect(ACT_FRAMES[a].length, a).toBeGreaterThan(0);
+    for (const a of ['cook', 'read', 'water', 'pick', 'bouquet', 'point', 'meal', 'phone'] as const) expect(ACT_FRAMES[a].length, a).toBeGreaterThan(0);
     const poses = activityPoses();
     expect(poses.length).toBe(ACT_FRAMES.total);
     expect(ACT_COLS * COUPLE_W).toBeLessThanOrEqual(4096);
@@ -95,6 +95,14 @@ describe('activities', () => {
         expect(t[1]).toBeLessThan(FRAME_H);
       }
     }
+  });
+
+  it('eats seated: reaches to the plate, lifts, bites, and the head dips into the bite', () => {
+    const meal = activityPoses().slice(ACT_FRAMES.meal[0], ACT_FRAMES.meal[0] + ACT_FRAMES.meal.length);
+    expect(meal.every((p) => p.sit)).toBe(true);
+    expect(meal[0].handR?.[0]).toBeGreaterThan(FRAME_W / 2 + 40); // out to the plate beside her
+    expect(meal.filter((p) => p.eat === 2).length).toBeGreaterThanOrEqual(2); // bites
+    expect(anchorFor(0, 0, 172, true).bite).toBe(true);
   });
 
   it('has faces for reading and stargazing', () => {

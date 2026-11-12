@@ -3,7 +3,7 @@ import type { Hotspot, LocationDef } from '../content/types';
 import { store } from '../core/store';
 import { bus } from '../core/events';
 import { audio } from '../audio/audio';
-import { COUPLE, FRAME_H, type Activity } from '../art/characters';
+import { COUPLE, FRAME_H, MEAL_CYCLE_MS, type Activity } from '../art/characters';
 import { shade } from '../art/paint';
 import { resolveLook } from '../home/logic';
 import { setPrompt } from '../ui/hud';
@@ -42,6 +42,8 @@ export interface CoupleHost {
   sitAnim(spr: Phaser.GameObjects.Sprite): void;
   /** Play an activity animation (pointing at the stars, cooking…), or stop it with null. */
   act(spr: Phaser.GameObjects.Sprite, a: Activity | null): void;
+  /** The partner is off doing his own thing (no idle moments together until he's back). */
+  alone(): boolean;
 }
 
 /** Hips sit this far above the feet in the sprite frame (legs below are what hangs/hides when seated). */
@@ -77,15 +79,42 @@ const SEATS: Record<string, SeatSpec> = {
   'yard-blanket': { seats: [[1705, 478], [1795, 478]], scale: 0.8, crop: true },
 };
 
+/**
+ * The kitchen table (painted in rooms.ts): a chair at each end, facing us. Hips sit on the chair seats; each plate
+ * goes on the table beside its chair, where the reaching hand lands (meal frame 0 at the seated scale).
+ */
+const TABLE = { seats: [[1200, 436], [1370, 436]] as [number, number][], scale: 0.74, plates: [1244, 1326], plateY: 401 };
+const BITES = 3;
+
+/** A plate with `n` (0..3) little sandwiches on it, centred on (0, 0). */
+function drawPlate(g: Phaser.GameObjects.Graphics, n: number) {
+  g.clear();
+  g.fillStyle(0x000000, 0.12); g.fillEllipse(1, 3, 36, 9);
+  g.fillStyle(0xe6e0ea, 1); g.fillEllipse(0, 1, 34, 10);
+  g.fillStyle(0xffffff, 1); g.fillEllipse(0, 0, 32, 8.5);
+  g.fillStyle(0xf3eef4, 1); g.fillEllipse(0, 0.5, 21, 5);
+  const spots = [[-7, -2], [6, -2], [0, -5]];
+  for (let i = 0; i < n; i++) {
+    const [x, y] = spots[i];
+    g.fillStyle(0xc9965a, 1); g.fillTriangle(x - 6.4, y + 1.2, x + 6.4, y + 1.2, x, y - 9.6);
+    g.fillStyle(0xf6e2b4, 1); g.fillTriangle(x - 5.2, y + 0.4, x + 5.2, y + 0.4, x, y - 8.2);
+    g.fillStyle(0x7cc46a, 1); g.fillRect(x - 4.4, y - 2.2, 8.8, 1.4);
+  }
+  if (n === 0) { g.fillStyle(0xd8b47a, 1); for (const [x, y] of [[-5, 0], [3, -1], [7, 1]]) g.fillCircle(x, y, 0.9); } // crumbs
+}
+
 const SWING = { pivot: [760, 222] as [number, number], len: 200, anchors: [[728, 221], [792, 225]] as [number, number][], push: [905, 556] as [number, number] };
 
 const pick = <T,>(a: T[]) => a[Math.floor(Math.random() * a.length)];
 
-type Pose = { x: number; y: number; rot: number; scale: number; crop: boolean; face: number; depth: number };
+/** `crop`: true hides the legs (sitting on the ground); a number keeps only that many frame px from the top (in bed). */
+type Pose = { x: number; y: number; rot: number; scale: number; crop: boolean | number; face: number; depth: number };
 
 export class CoupleDirector {
   /** An act is running (swing / sit): world input is paused and these sprites are posed by us. */
   active = false;
+  /** Bedtime has taken over (they lie down and the scene fades out): nothing else may stand them back up. */
+  private bedtimeOn = false;
   private posed = new Map<Phaser.GameObjects.Sprite, Pose>();
   /** Sprites kept standing still where they are (e.g. the partner pushing the swing). */
   private held = new Set<Phaser.GameObjects.Sprite>();
@@ -167,7 +196,7 @@ export class CoupleDirector {
       spr.setRotation(p.rot);
       spr.setScale(p.scale * p.face, p.scale);
       spr.setDepth(p.depth);
-      if (p.crop) spr.setCrop(0, 0, spr.frame.width, FRAME_H - HIP); else spr.setCrop();
+      if (p.crop) spr.setCrop(0, 0, spr.frame.width, typeof p.crop === 'number' ? p.crop : FRAME_H - HIP); else spr.setCrop();
       const sh = this.h.shadow(spr);
       if (sh) sh.setVisible(false);
     }
@@ -183,7 +212,7 @@ export class CoupleDirector {
     });
     // Idle and ambient moments.
     const partner = this.h.partner();
-    if (!partner || this.active || store.blocked) { this.idleT = 0; this.stillT = 0; return; }
+    if (!partner || this.active || store.blocked || this.h.alone()) { this.idleT = 0; this.stillT = 0; return; }
     const still = !this.h.motion(player).moving && !this.h.motion(partner).moving;
     this.idleT = still ? this.idleT + dt : 0;
     this.stillT = still ? this.stillT + dt : 0;
@@ -428,7 +457,7 @@ export class CoupleDirector {
       // A moment together before the activity (longer on the blanket: they look at the sky first).
       await new Promise((r) => this.h.scene.time.delayedCall(blanket ? (store.timeOfDay() === 'night' ? 5600 : 3800) : 1300, r));
       await runAction();
-      if (this.dead) return; // the scene restarted (e.g. she chose to sleep)
+      if (this.dead || this.bedtimeOn) return; // the scene restarted, or she chose to sleep (bedtime takes over)
       // Stand up.
       this.front?.destroy();
       this.front = undefined;
@@ -440,9 +469,179 @@ export class CoupleDirector {
     } finally {
       this.front?.destroy();
       this.front = undefined;
-      this.release(player);
-      this.release(partner);
+      if (!this.bedtimeOn) {
+        this.release(player);
+        this.release(partner);
+        this.active = false;
+      }
+    }
+  }
+
+  /**
+   * A meal at the kitchen table. They walk to the chairs and sit down; the plates arrive; they eat bite by bite
+   * (reach, lift, bite, chew, lower), the plates emptying as they go; a happy reaction; then they get up.
+   * Works alone too (when he's out at work or hidden).
+   */
+  async meal(): Promise<void> {
+    const player = this.h.player(), partner = this.h.partner();
+    const s = this.h.scene;
+    const loc = this.h.loc();
+    const wait = (ms: number) => new Promise<void>((r) => s.time.delayedCall(ms, r));
+    const diners = partner && store.settings.companionMode !== 'hidden' ? [player, partner] : [player];
+    const plates: Phaser.GameObjects.Graphics[] = [];
+    const LAG = 520; // he starts each bite a little after her
+    this.active = true;
+    try {
+      // To the chairs (she takes the one nearer the stove side; he goes round to the other end).
+      if (partner && diners.length > 1 && Math.abs(partner.x - TABLE.seats[1][0]) > 420) partner.x = TABLE.seats[1][0] + 160;
+      const floorY = loc.floorTop + 8;
+      await Promise.all(diners.map((spr, i) => this.walk(spr, TABLE.seats[i][0], floorY)));
+      if (this.dead) return;
+      // Sit down, facing along the table toward each other.
+      const seat = (i: number): Pose => ({
+        x: TABLE.seats[i][0], y: TABLE.seats[i][1] + HIP * TABLE.scale, rot: 0, scale: TABLE.scale, crop: false, face: i === 0 ? 1 : -1, depth: TABLE.seats[i][1] + 5,
+      });
+      await Promise.all(diners.map((spr, i) => this.hop(spr, seat(i), i ? 470 : 420)));
+      diners.forEach((spr) => this.h.sitAnim(spr));
+      // The food arrives: a plate pops onto the table in front of each of them.
+      diners.forEach((_, i) => {
+        const g = s.add.graphics().setPosition(TABLE.plates[i], TABLE.plateY).setDepth(TABLE.seats[i][1]).setScale(0.2).setAlpha(0);
+        drawPlate(g, BITES);
+        plates.push(g);
+        s.tweens.add({ targets: g, scale: 1, alpha: 1, duration: 320, delay: i * 160, ease: 'Back.easeOut' });
+        s.time.delayedCall(i * 160, () => { audio.sfx('plop'); this.h.burst(TABLE.plates[i], TABLE.plateY - 8, 'p-star', 4); });
+      });
+      this.h.face(player, 'happy', 1300);
+      if (diners.length > 1) this.say(partner, pick(['Itadakimasu ♡', 'Let’s eat!', 'Looks so good.', 'Dinner date ♡']), 1800);
+      await wait(1100);
+      if (this.dead) return;
+      // Bite by bite: the food leaves the plate as the hand lifts it (frame 1 of each cycle), then chewing.
+      diners.forEach((spr, i) => {
+        const start = i * LAG;
+        s.time.delayedCall(start, () => {
+          if (!this.posed.has(spr)) return;
+          this.h.act(spr, 'meal');
+          this.h.face(spr, 'eating', BITES * MEAL_CYCLE_MS);
+        });
+        for (let b = 0; b < BITES; b++) {
+          s.time.delayedCall(start + b * MEAL_CYCLE_MS + MEAL_CYCLE_MS / 6, () => {
+            if (!plates[i]?.active) return;
+            drawPlate(plates[i], BITES - 1 - b);
+            if (i === 0) audio.sfx('squish');
+          });
+        }
+        // Finished: put down, lean back with a happy face.
+        s.time.delayedCall(start + BITES * MEAL_CYCLE_MS, () => {
+          if (!this.posed.has(spr)) return;
+          this.h.act(spr, null);
+          this.h.sitAnim(spr);
+          this.h.face(spr, 'happy', 2200);
+        });
+      });
+      // Halfway: a little "mmm!" (and he checks she likes it).
+      s.time.delayedCall(MEAL_CYCLE_MS * 1.6, () => {
+        if (!this.active) return;
+        this.emote(player.x, this.headY(player), 'heart');
+        this.bounce(player, 0.5);
+        if (diners.length > 1 && Math.random() < 0.6) this.say(partner, pick(['Good?', 'You have a crumb… right there.', 'Slow down, haha ♡']), 1800);
+        else this.say(player, pick(['Mmm!', 'So good ♡', 'Yum!']), 1500);
+      });
+      await wait(BITES * MEAL_CYCLE_MS + (diners.length - 1) * LAG + 300);
+      if (this.dead) return;
+      this.say(player, pick(['That hit the spot ♡', 'So full…', 'Thank you for the food!']), 2000);
+      if (diners.length > 1) {
+        s.time.delayedCall(900, () => { if (this.active) { this.say(partner, pick(['Anytime ♡', 'Same time tomorrow?', 'I like eating with you.']), 1800); this.h.face(partner, 'smiling', 1800); } });
+        this.emote((player.x + partner!.x) / 2, this.headY(player), 'heart');
+      }
+      plates.forEach((g) => s.tweens.add({ targets: g, alpha: 0, duration: 400, delay: 900 }));
+      await wait(1500);
+      if (this.dead) return;
+      // Get up.
+      const floor = loc.floorTop + 14;
+      await Promise.all(diners.map((spr, i) => this.hop(spr, this.floorPose(spr, TABLE.seats[i][0] + (i ? 30 : -30), floor + i * 6), i ? 460 : 420)));
+    } finally {
+      plates.forEach((g) => { s.tweens.killTweensOf(g); g.destroy(); });
+      for (const spr of diners) {
+        if (!this.dead) this.h.act(spr, null);
+        this.release(spr);
+      }
       this.active = false;
+    }
+  }
+
+  /**
+   * Bedtime: they walk to the bed, sit on the edge, lie back with their heads on the pillows, pull the blanket up and
+   * fall asleep. Leaves them lying there (the scene fades out and the time passes).
+   */
+  async bedtime(): Promise<void> {
+    const player = this.h.player(), partner = this.h.partner();
+    const s = this.h.scene;
+    const loc = this.h.loc();
+    const wait = (ms: number) => new Promise<void>((r) => s.time.delayedCall(store.settings.reducedMotion ? Math.min(ms, 500) : ms, r));
+    const both = partner && store.settings.companionMode !== 'hidden' ? [player, partner] : [player];
+    const spec = SEATS['bedroom-bed'];
+    let asleep = false;
+    // Usually they're already sitting on the bed (the sleep menu opens from there); otherwise they go and sit first.
+    const seated = both.every((spr) => this.posed.has(spr));
+    this.active = true;
+    this.bedtimeOn = true;
+    try {
+      if (!seated) {
+        both.forEach((spr) => this.release(spr));
+        if (both.length > 1 && Math.abs(partner!.x - spec.seats[1][0]) > 420) partner!.x = spec.seats[1][0] + 160;
+        await Promise.all(both.map((spr, i) => this.walk(spr, spec.seats[i][0], loc.floorTop + 8)));
+        if (this.dead) return;
+        // Sit on the edge of the bed for a moment.
+        await Promise.all(both.map((spr, i) => this.hop(spr, {
+          x: spec.seats[i][0], y: spec.seats[i][1] + HIP * spec.scale, rot: 0, scale: spec.scale, crop: false, face: i ? -1 : 1, depth: spec.seats[i][1] + 5,
+        }, i ? 470 : 420)));
+        both.forEach((spr) => this.h.sitAnim(spr));
+      }
+      this.h.face(player, 'sleepy', 2400);
+      this.emote(player.x + 12, this.headY(player), 'z', '#7a6a9a');
+      if (both.length > 1) { this.say(partner, pick(['Bedtime ♡', 'Come here, sleepyhead.', 'Long day, huh?']), 1700); this.h.face(partner, 'smiling', 1700); }
+      await wait(1100);
+      if (this.dead) return;
+      // Lie down: heads on the pillow at the headboard end, tilted toward each other, the rest of them under the
+      // covers (like a cozy storybook bed: we see the faces, not a sideways body). He's just in front of her.
+      // `x, y` is the body's bottom pivot, placed so the neck lands on the pillow line; only head and shoulders show.
+      const lie = [{ x: 588, y: 494, rot: 0.15 }, { x: 702, y: 502, rot: -0.15 }];
+      // Tuck in: as they slide down, the blanket comes up to their chins.
+      const color = (store.hasGame ? resolveLook(store.state.home, 'bedroom').blanket : undefined) ?? 0xb9a0e0;
+      const blanket = s.add.graphics().setDepth(460).setAlpha(0).setPosition(0, 30);
+      const slide = Promise.all(both.map((spr, i) => new Promise<void>((done) => {
+        const p = this.posed.get(spr);
+        if (!p) { done(); return; }
+        p.face = 1;
+        p.depth = 450 + i * 2;
+        s.tweens.add({
+          targets: p, x: lie[i].x, y: lie[i].y, rot: lie[i].rot, duration: store.settings.reducedMotion ? 1 : 560, delay: i * 180, ease: 'Sine.easeInOut',
+          onComplete: () => { p.crop = 128; done(); }, // only head and shoulders above the covers
+        });
+      })));
+      blanket.fillStyle(shade(color, -0.14), 1);
+      blanket.fillRoundedRect(560, 414, 322, 68, 22);
+      blanket.fillStyle(shade(color, 0.05), 1);
+      blanket.fillRoundedRect(562, 408, 318, 58, 22);
+      blanket.fillStyle(0xfffaf4, 1);
+      blanket.fillRoundedRect(560, 403, 196, 16, 8); // the sheet folded over the top edge
+      blanket.fillStyle(0xffffff, 0.3);
+      for (let i = 0; i < 6; i++) blanket.fillCircle(640 + i * 40, 440 + (i % 2) * 14, 5);
+      s.tweens.add({ targets: blanket, alpha: 1, y: 0, duration: store.settings.reducedMotion ? 1 : 620, delay: store.settings.reducedMotion ? 0 : 160, ease: 'Sine.easeOut' });
+      await slide;
+      asleep = true;
+      audio.sfx('stretch');
+      this.h.face(player, 'blushing', 1200);
+      if (both.length > 1) this.h.face(partner, 'smiling', 1200);
+      await wait(1100);
+      both.forEach((spr) => this.h.face(spr, 'asleep', 60000));
+      for (let k = 0; k < 3; k++) {
+        s.time.delayedCall(k * 600, () => { if (this.active) this.emote(640 + k * 8, 330, 'z', '#7a6a9a'); });
+      }
+      await wait(2000);
+    } finally {
+      // Asleep: they stay lying in bed while the scene fades out. Otherwise put them back on their feet.
+      if (!asleep) { for (const spr of both) this.release(spr); this.active = false; this.bedtimeOn = false; }
     }
   }
 

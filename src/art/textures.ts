@@ -4,7 +4,7 @@ import { ROOMS, setPaintLook } from './rooms';
 import { isHouseRoom, type HouseRoom } from '../home/data';
 import { lookKey, resolveLook } from '../home/logic';
 import {
-  ACT_FRAMES, ACTIVITIES, buildActivitySheet, buildCoupleSheet, buildHeadSheet, buildSpriteSheet, COUPLE_FRAMES, FRAME_H, FRAMES, HEAD_FRAMES, HEAD_H, HEAD_W,
+  ACT_FRAMES, ACTIVITIES, MEAL_RATE, buildActivitySheet, buildCoupleSheet, buildHeadSheet, buildSpriteSheet, COUPLE_FRAMES, FRAME_H, FRAMES, HEAD_FRAMES, HEAD_H, HEAD_W,
   type Activity, type Look, type Sheet,
 } from './characters';
 import { HEAD_RES, anchorFor, type Face, type HeadAnchor } from './chibi/spec';
@@ -107,9 +107,9 @@ export function ensureActivities(scene: Phaser.Scene, key: string, look: Look) {
   const ak = `${key}-a`;
   if (!scene.textures.exists(ak)) addSheet(scene, ak, buildActivitySheet(look), ACT_FRAMES.total);
   else if (!ANCHORS.has(ak)) ANCHORS.set(ak, buildActivitySheet(look).anchors);
-  if (scene.anims.exists(`${key}-act-point`)) return;
+  if (scene.anims.exists(`${key}-act-${ACTIVITIES[ACTIVITIES.length - 1]}`)) return;
   const f = (list: number[]) => list.map((frame) => ({ key: ak, frame }));
-  const rate: Record<Activity, number> = { cook: 5, read: 1.8, water: 7, pick: 3.4, bouquet: 2.4, point: 2.4 };
+  const rate: Record<Activity, number> = { cook: 5, read: 1.8, water: 7, pick: 3.4, bouquet: 2.4, point: 2.4, meal: MEAL_RATE, phone: 1.6 };
   for (const a of ACTIVITIES) {
     scene.anims.create({ key: `${key}-act-${a}`, frames: f(ACT_FRAMES[a]), frameRate: rate[a], repeat: a === 'pick' ? 0 : -1, yoyo: a === 'bouquet' || a === 'point' });
   }

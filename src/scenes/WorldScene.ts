@@ -46,7 +46,20 @@ const hotspotLabel = (h: Hotspot) => {
   return store.fmt(h.label);
 };
 
-interface WorldData { location: LocationId; spawnX?: number; spawnY?: number; fromLoad?: boolean; intro?: boolean; needAction?: NeedAction }
+interface WorldData { location: LocationId; spawnX?: number; spawnY?: number; fromLoad?: boolean; intro?: boolean; needAction?: NeedAction; from?: LocationId }
+
+/** Rooms he never follows her into: he waits outside the bathroom door in the living room. */
+const PRIVATE: LocationId[] = ['bathroom', 'comfortroom'];
+/** Where he waits for her, just beside the living room's bathroom door. */
+const WAIT_SPOT = { x: 1640, dy: -10 };
+/** Places he wanders off to on his own now and then, and what he does there. */
+const SOLO_SPOTS: Partial<Record<LocationId, { x: number; act: 'read' | 'phone' }[]>> = {
+  livingroom: [{ x: 300, act: 'read' }, { x: 1390, act: 'phone' }, { x: 1100, act: 'phone' }],
+  bedroom: [{ x: 1050, act: 'read' }, { x: 330, act: 'phone' }, { x: 1180, act: 'phone' }],
+  kitchen: [{ x: 990, act: 'phone' }, { x: 320, act: 'phone' }],
+  backyard: [{ x: 730, act: 'read' }, { x: 1380, act: 'phone' }, { x: 1900, act: 'phone' }],
+  school: [{ x: 1820, act: 'read' }, { x: 670, act: 'phone' }],
+};
 
 interface Target { kind: 'hotspot' | 'him'; x: number; label: string; h?: Hotspot }
 
@@ -82,6 +95,9 @@ export class WorldScene extends Phaser.Scene {
   private busy = false;
   private playerAction = false;
   private companionPaused = false;
+  /** He's off doing his own thing (reading, on his phone) instead of following her. */
+  private solo: { x: number; act: 'read' | 'phone'; until: number; arrived: boolean } | null = null;
+  private soloT = 0;
   private needUiTimer = 0;
   private leaving = false;
   private keys!: Record<string, Phaser.Input.Keyboard.Key>;
@@ -245,6 +261,8 @@ export class WorldScene extends Phaser.Scene {
     this.occ = topOccasion();
     this.occasionTheme = this.occ ? occasionThemeForDay(this.occ, store.now()) : undefined;
     this.busy = false;
+    this.solo = null;
+    this.soloT = 20 + Math.random() * 15;
     this.playerAction = false;
     this.companionPaused = false;
     this.needUiTimer = 0;
@@ -296,6 +314,7 @@ export class WorldScene extends Phaser.Scene {
       face: (spr, face, ms) => this.heads.show(spr, face, ms),
       sitAnim: (spr) => { this.acts.delete(spr); const k = spr === this.player ? this.herKey : this.hisKey; spr.play(`${k}-sit`, true); spr.anims.timeScale = 1; },
       act: (spr, a) => this.doing(spr, a),
+      alone: () => !!this.solo,
     });
     this.couple.buildProps();
     this.items = new HomeItems(this, this.loc);
@@ -336,11 +355,10 @@ export class WorldScene extends Phaser.Scene {
     const on = (evt: string, fn: (p?: any) => void) => this.unsub.push(bus.on(evt, fn));
     on('travel', (p: { to: LocationId; spawnX?: number }) => void this.travel(p.to, p.spawnX));
     on('need-shortcut', (action: NeedAction) => void this.useNeedShortcut(action));
-    on('sleep', () => {
-      // Both drift off before the night passes.
-      this.heads.show(this.player, 'asleep', 6000);
-      this.heads.show(this.him, 'asleep', 6000);
-      void this.reload('Zzz…', true);
+    on('sleep', (p?: { apply: () => void; claim: () => void }) => {
+      if (!p || this.leaving) return;
+      p.claim();
+      void this.goToSleep(p.apply);
     });
     // Faces in the world mirror the conversation: each line's mood shows on whoever is speaking.
     on('dialogue:mood', (p: { who: 'her' | 'him'; mood: Mood }) => {
@@ -409,6 +427,8 @@ export class WorldScene extends Phaser.Scene {
   }
 
   private async afterEnter(data: WorldData) {
+    // Stepping into the bathroom: the door clicks shut behind her.
+    if (PRIVATE.includes(this.loc.id) && data.from && !PRIVATE.includes(data.from)) this.time.delayedCall(320, () => audio.sfx('close'));
     if (!data.fromLoad && !data.intro) {
       if (data.needAction) {
         this.busy = true;
@@ -537,11 +557,36 @@ export class WorldScene extends Phaser.Scene {
     }
 
     const mode = store.settings.companionMode;
-    // He's only in the house when he isn't at work (or waiting at the door).
-    if (mode !== 'hidden' && !partnerAway()) {
-      const hx = mode === 'stay' ? Phaser.Math.Clamp(loc.spawnX + 260, 60, loc.width - 60) : x - 90;
-      this.spawnPartner(hx, y - 8);
+    // He's only in the house when he isn't at work (or waiting at the door), and never in the bathroom with her.
+    if (mode !== 'hidden' && !partnerAway() && !PRIVATE.includes(loc.id)) {
+      if (loc.id === 'livingroom' && data.from && PRIVATE.includes(data.from)) {
+        this.spawnPartner(WAIT_SPOT.x, y + WAIT_SPOT.dy);
+        this.waitedOutside();
+      } else {
+        const hx = mode === 'stay' ? Phaser.Math.Clamp(loc.spawnX + 260, 60, loc.width - 60) : x - 90;
+        this.spawnPartner(hx, y - 8);
+      }
     }
+  }
+
+  /** She comes out of the bathroom: he was waiting by the door on his phone; he looks up, then they carry on. */
+  private waitedOutside() {
+    const him = this.him;
+    if (!him) return;
+    this.companionPaused = true;
+    this.mo(him).faceT = this.player.x > him.x ? 1 : -1;
+    this.doing(him, 'phone');
+    this.heads.show(him, 'reading', 60000);
+    // (long enough to be seen after the room fades in)
+    this.time.delayedCall(store.settings.reducedMotion ? 800 : 2400, () => {
+      if (!this.him?.active) { this.companionPaused = false; return; }
+      this.doing(him, null);
+      this.heads.show(him, 'happy', 2200);
+      this.mo(him).sqV -= 0.6;
+      this.couple.say(him, pickOne(['There you are ♡', 'Feel better?', 'Missed you. That was 5 minutes.', 'All fresh? ♡']), 2200);
+      this.couple.emote(him.x, him.y - FRAME_H * Math.abs(him.scaleY) - 6, 'heart');
+      this.time.delayedCall(700, () => { this.companionPaused = false; });
+    });
   }
 
   private spawnPartner(x: number, y: number) {
@@ -786,11 +831,20 @@ export class WorldScene extends Phaser.Scene {
   async travel(to: LocationId, spawnX?: number, text = '', needAction?: NeedAction) {
     if (this.leaving) return;
     this.leaving = true;
+    const from = this.loc.id;
+    // Into the bathroom she goes alone: he stays outside and says so.
+    const him = this.him;
+    if (him && PRIVATE.includes(to) && !PRIVATE.includes(from) && Math.abs(him.x - this.player.x) < 600) {
+      this.mo(him).faceT = this.player.x > him.x ? 1 : -1;
+      this.heads.show(him, 'smiling', 2000);
+      this.couple.say(him, pickOne(['I’ll wait out here ♡', 'Take your time!', 'I’ll be right here.']), 1800);
+      await new Promise((r) => setTimeout(r, store.settings.reducedMotion ? 350 : 750));
+    }
     audio.sfx('door');
     store.save();
     await fadeOut(text);
     store.state.location = to;
-    this.scene.restart({ location: to, spawnX, needAction });
+    this.scene.restart({ location: to, spawnX, needAction, from });
   }
 
   async reload(text = '', woke = false) {
@@ -800,6 +854,23 @@ export class WorldScene extends Phaser.Scene {
     const d: WorldData = { location: this.loc.id, spawnX: this.player.x, spawnY: this.player.y };
     this.scene.restart(d);
     if (woke) setTimeout(() => void narrate('You wake up feeling cozy and refreshed.'), 900);
+  }
+
+  /** Bedtime: in the bedroom they walk to the bed, lie down and drift off; then the time passes and she wakes up. */
+  private async goToSleep(applyTime: () => void) {
+    this.busy = true;
+    try {
+      if (this.loc.id === 'bedroom') await this.couple.bedtime();
+      else {
+        this.heads.show(this.player, 'asleep', 6000);
+        this.heads.show(this.him, 'asleep', 6000);
+      }
+    } catch (e) {
+      console.warn('[sleep] bedtime skipped', e);
+    }
+    const done = this.reload('Zzz…', true); // marks the scene as leaving first, so the time change doesn't reload it twice
+    applyTime();
+    await done;
   }
 
   // ---------------------------------------------------------------- interaction
@@ -834,6 +905,7 @@ export class WorldScene extends Phaser.Scene {
     this.drawHighlight(null);
     try {
       if (t.kind === 'him') {
+        this.endSolo();
         if (this.him) {
           // Turn to face each other.
           this.mo(this.him).faceT = this.player.x < this.him.x ? -1 : 1;
@@ -974,7 +1046,9 @@ export class WorldScene extends Phaser.Scene {
   }
 
   private async performNeed(action: NeedAction) {
-    await this.animateNeed(action);
+    // Meals are eaten sitting at the kitchen table (together, when he's home).
+    if (action === 'eat' && this.loc.id === 'kitchen') await this.couple.meal();
+    else await this.animateNeed(action);
     if (action === 'eat') {
       restoreHunger(store.state);
       bumpStat('meals');
@@ -1048,37 +1122,64 @@ export class WorldScene extends Phaser.Scene {
         this.couple.emote(player.x, player.y - FRAME_H * Math.abs(player.scaleY) - 6, 'heart');
         await pause(700);
       } else if (action === 'shower') {
-        await movePlayer(900);
-        player.play(`${this.herKey}-idle`, true);
-        privacyLayer = this.add.graphics().setDepth(8500).setAlpha(0);
-        privacyLayer.fillStyle(0xdff8ff, 0.97);
-        privacyLayer.fillRoundedRect(748, 205, 325, 450, 26);
-        privacyLayer.fillStyle(0xffffff, 0.68);
-        privacyLayer.fillCircle(810, 315, 60);
-        privacyLayer.fillCircle(920, 278, 75);
-        privacyLayer.fillCircle(1010, 340, 66);
-        privacyLayer.fillCircle(840, 450, 72);
-        privacyLayer.fillCircle(970, 485, 85);
-        privacyLayer.lineStyle(5, 0xb7e5ee, 0.8);
-        privacyLayer.strokeRoundedRect(760, 216, 300, 431, 22);
+        // Start: she walks to the shower, steps in, and the curtain slides shut along the rail.
+        await movePlayer(910);
+        this.heads.show(player, 'happy', 1600);
+        const curtain = this.add.graphics().setPosition(770, 212).setDepth(8500).setScale(0.08, 1);
+        privacyLayer = curtain;
+        const W = 282, H = 300;
+        curtain.fillStyle(0x7fc8c2, 1);
+        curtain.fillRoundedRect(0, 6, W, H, { tl: 4, tr: 4, bl: 14, br: 14 });
+        for (let i = 0; i < 9; i++) { // soft folds
+          curtain.fillStyle(i % 2 ? 0x9cd8d2 : 0xb6e6e0, 1);
+          curtain.fillRect(6 + i * (W - 12) / 9, 8, (W - 12) / 9 - 3, H - 8);
+        }
+        curtain.fillStyle(0xffffff, 0.5);
+        for (let i = 0; i < 6; i++) curtain.fillCircle(30 + i * 46, 60 + (i % 2) * 70, 9);
+        curtain.fillStyle(0x8ebcba, 1);
+        for (let i = 0; i < 10; i++) curtain.fillCircle(8 + i * (W - 16) / 9, 6, 4.5); // rings on the rail
+        audio.sfx('open');
         await new Promise<void>((resolve) => {
-          this.tweens.add({ targets: privacyLayer, alpha: 1, duration: reduced ? 0 : 500, onComplete: () => resolve() });
+          this.tweens.add({ targets: player, alpha: 0, y: player.y - 18, duration: reduced ? 0 : 380 });
+          if (shadow) this.tweens.add({ targets: shadow, alpha: 0, duration: reduced ? 0 : 380 });
+          this.tweens.add({ targets: curtain, scaleX: 1, duration: reduced ? 0 : 560, ease: 'Sine.easeInOut', onComplete: () => resolve() });
         });
+        player.setVisible(false);
+        // Main: the water runs, steam rises over the curtain rail, she hums.
+        audio.sfx('water');
+        const hum = this.time.addEvent({ delay: 700, repeat: 2, callback: () => {
+          audio.sfx('water');
+          this.couple.emote(860 + Math.random() * 120, 200, '♪', '#4a8ac8');
+        } });
         if (!reduced) {
-          for (let i = 0; i < 6; i++) {
-            const steam = this.add.ellipse(800 + i * 43, 560 - (i % 3) * 18, 30, 58, 0xffffff, 0.38).setDepth(8501);
+          for (let i = 0; i < 7; i++) {
+            const steam = this.add.ellipse(790 + i * 40, 300 - (i % 3) * 18, 32, 60, 0xffffff, 0.42).setDepth(8501);
             steamPuffs.push(steam);
             this.tweens.add({
-              targets: steam, y: steam.y - 100, alpha: 0, scale: 1.5, duration: 1400 + (i % 2) * 300,
-              delay: i * 180, repeat: 1,
-              onRepeat: () => { steam.y = 560 - (i % 3) * 18; steam.alpha = 0.38; },
+              targets: steam, y: steam.y - 120, alpha: 0, scale: 1.6, duration: 1500 + (i % 2) * 300,
+              delay: i * 200, repeat: 1,
+              onRepeat: () => { steam.y = 300 - (i % 3) * 18; steam.alpha = 0.42; },
               onComplete: () => steam.destroy(),
             });
           }
         }
-        await pause(1800);
+        await pause(2600);
+        hum.remove();
+        // End: the water stops, the curtain opens, and she steps out all fresh.
+        audio.sfx('open');
+        player.setVisible(true);
+        await new Promise<void>((resolve) => {
+          this.tweens.add({ targets: curtain, scaleX: 0.08, duration: reduced ? 0 : 520, ease: 'Sine.easeInOut', onComplete: () => resolve() });
+          this.tweens.add({ targets: player, alpha: 1, y: originalY, duration: reduced ? 0 : 420, delay: reduced ? 0 : 160 });
+          if (shadow) this.tweens.add({ targets: shadow, alpha: 1, duration: reduced ? 0 : 420 });
+        });
+        this.burst(player.x, player.y - 90, 'p-star', 10);
+        this.heads.show(player, 'happy', 2200);
+        this.couple.say(player, pickOne(['All fresh ♡', 'Ahh, so much better.', 'Squeaky clean!']), 1800);
+        await pause(800);
         await movePlayer(originalX);
       } else {
+        // Start: she walks into the stall and the door swings shut behind her.
         await movePlayer(680);
         privacyFrame = this.add.graphics().setDepth(8498);
         privacyFrame.lineStyle(12, 0xe8b6c7, 1);
@@ -1094,23 +1195,51 @@ export class WorldScene extends Phaser.Scene {
         privacyLayer.strokeRoundedRect(-119, -169, 238, 338, 8);
         privacyLayer.fillStyle(0xffffff, 0.8);
         privacyLayer.fillCircle(74, 0, 7);
+        privacyLayer.fillStyle(0xffffff, 0.9); // little heart sign on the door
+        privacyLayer.fillCircle(-6, -110, 7); privacyLayer.fillCircle(6, -110, 7); privacyLayer.fillTriangle(-13, -107, 13, -107, 0, -94);
+        const door = privacyLayer;
         await new Promise<void>((resolve) => {
-          this.tweens.add({ targets: privacyLayer, scaleX: 1, duration: reduced ? 0 : 400, ease: 'Sine.easeInOut', onComplete: () => resolve() });
+          this.tweens.add({ targets: player, alpha: 0, duration: reduced ? 0 : 300 });
+          if (shadow) this.tweens.add({ targets: shadow, alpha: 0, duration: reduced ? 0 : 300 });
+          this.tweens.add({ targets: door, scaleX: 1, duration: reduced ? 0 : 400, ease: 'Sine.easeInOut', onComplete: () => resolve() });
         });
-        await pause(1800);
+        player.setVisible(false);
+        audio.sfx('close');
+        // Main: a quiet moment, then the flush.
+        await pause(1500);
+        audio.sfx('water');
+        await pause(600);
+        // End: the door opens and she steps out, then washes her hands at the sink.
+        audio.sfx('open');
+        player.setVisible(true);
         await new Promise<void>((resolve) => {
-          this.tweens.add({ targets: privacyLayer, scaleX: 0.06, duration: reduced ? 0 : 400, ease: 'Sine.easeInOut', onComplete: () => resolve() });
+          this.tweens.add({ targets: door, scaleX: 0.06, duration: reduced ? 0 : 400, ease: 'Sine.easeInOut', onComplete: () => resolve() });
+          this.tweens.add({ targets: player, alpha: 1, duration: reduced ? 0 : 300, delay: reduced ? 0 : 120 });
+          if (shadow) this.tweens.add({ targets: shadow, alpha: 1, duration: reduced ? 0 : 300 });
         });
+        if (this.loc.id === 'comfortroom') {
+          await movePlayer(1010);
+          audio.sfx('water');
+          this.heads.show(player, 'smiling', 1600);
+          for (let i = 0; i < 5; i++) {
+            this.time.delayedCall(i * 160, () => {
+              const b = this.add.circle(1000 + Math.random() * 24, 392, 3 + Math.random() * 3, 0xffffff, 0.85).setDepth(8502).setStrokeStyle(1, 0xa8d8e8);
+              this.tweens.add({ targets: b, y: 360 - Math.random() * 20, alpha: 0, duration: 700, onComplete: () => b.destroy() });
+            });
+          }
+          await pause(1100);
+        }
         await movePlayer(originalX);
       }
     } finally {
       this.tweens.killTweensOf(player);
-      player.setPosition(originalX, originalY).setScale(originalScaleX, originalScaleY).setDepth(originalY);
-      shadow?.setPosition(originalX, originalY - 2).setDepth(originalY - 1);
+      if (shadow) this.tweens.killTweensOf(shadow);
+      player.setPosition(originalX, originalY).setScale(originalScaleX, originalScaleY).setDepth(originalY).setAlpha(1).setVisible(true);
+      shadow?.setPosition(originalX, originalY - 2).setDepth(originalY - 1).setAlpha(1);
       privacyLayer?.destroy();
       privacyFrame?.destroy();
       steamPuffs.forEach((steam) => { this.tweens.killTweensOf(steam); steam.destroy(); });
-      camera.startFollow(player, true, 0.09, 0.09, 0, 120);
+      if (player.active) camera.startFollow(player, true, 0.09, 0.09, 0, 120); // (the room may have reloaded meanwhile)
       this.playerAction = false;
       this.companionPaused = false;
     }
@@ -1240,6 +1369,8 @@ export class WorldScene extends Phaser.Scene {
     s.x = Math.round(this.player.x);
     s.y = Math.round(this.player.y);
 
+    // He drops what he's doing for anything they do together.
+    if (this.solo && (!this.him || this.couple.active || this.couple.controls(this.him) || this.holdingNow() || store.blocked)) this.endSolo();
     if (!this.companionPaused) {
       if (!this.him || !this.couple.controls(this.him)) this.updateCompanion(dt, moving);
       this.updateHands();
@@ -1329,8 +1460,10 @@ export class WorldScene extends Phaser.Scene {
       if (Math.abs(tvx) < 6 && Math.abs(tvy) < 6) { tvx = 0; tvy = 0; }
     } else if (store.settings.companionMode === 'follow') {
       // Follow a spot just behind her; speed scales with distance so he glides in and settles.
-      const tx = Phaser.Math.Clamp(this.player.x - this.facing * this.followGap, 40, loc.width - 40);
-      const ty = Phaser.Math.Clamp(this.player.y - 10, loc.floorTop, loc.floorBottom);
+      // Now and then he wanders off to do his own thing instead (see soloLife).
+      const solo = this.soloLife(dt, playerMoving, m.moving);
+      const tx = solo ? solo.x : Phaser.Math.Clamp(this.player.x - this.facing * this.followGap, 40, loc.width - 40);
+      const ty = solo ? Phaser.Math.Clamp(this.player.y - 14, loc.floorTop, loc.floorBottom) : Phaser.Math.Clamp(this.player.y - 10, loc.floorTop, loc.floorBottom);
       const dx = tx - him.x, dy = ty - him.y;
       const d = Math.hypot(dx, dy);
       if (d > 12) {
@@ -1355,6 +1488,52 @@ export class WorldScene extends Phaser.Scene {
         this.tweens.add({ targets: e, scale: 0.7, y: e.y - 30, duration: 500, ease: 'Back.easeOut' });
         this.tweens.add({ targets: e, alpha: 0, delay: 1300, duration: 400, onComplete: () => e.destroy() });
       }
+    }
+  }
+
+  /**
+   * His own little life: when they've both stood still for a while, he sometimes wanders to a spot in the room and
+   * reads or checks his phone. He comes back as soon as she walks off, holds his hand, or after 8–12 s.
+   * Returns where he's headed while he's off on his own, or null when he's simply following her.
+   */
+  private soloLife(dt: number, playerMoving: boolean, himMoving: boolean): { x: number } | null {
+    const him = this.him!;
+    const solo = this.solo;
+    if (solo) {
+      const now = this.time.now;
+      const far = Math.abs(this.player.x - him.x) > 520;
+      const leaving = playerMoving && Math.abs(this.player.x - solo.x) > 300;
+      if (now > solo.until || far || leaving || this.couple.active) { this.endSolo(); return null; }
+      if (!solo.arrived && !himMoving && Math.abs(him.x - solo.x) < 14) {
+        solo.arrived = true;
+        this.doing(him, solo.act);
+        this.heads.show(him, 'reading', solo.until - now);
+      }
+      return solo;
+    }
+    const still = !playerMoving && !himMoving;
+    if (!still) return null;
+    this.soloT -= dt;
+    if (this.soloT > 0) return null;
+    this.soloT = 25 + Math.random() * 15;
+    const spots = (SOLO_SPOTS[this.loc.id] ?? []).filter((p) => {
+      const d = Math.abs(p.x - this.player.x);
+      return d > 110 && d < 460;
+    });
+    if (!spots.length || Math.random() < 0.25) return null;
+    const spot = pickOne(spots);
+    this.solo = { ...spot, until: this.time.now + 8000 + Math.random() * 4000, arrived: false };
+    if (Math.random() < 0.5) this.couple.say(him, spot.act === 'read' ? pickOne(['Ooh, I’ll grab a book.', 'Gonna read a bit ♡']) : pickOne(['One sec, checking something.', 'Brb ♡']), 1600);
+    return this.solo;
+  }
+
+  private endSolo() {
+    if (!this.solo) return;
+    this.solo = null;
+    this.soloT = 25 + Math.random() * 15;
+    if (this.him && this.acts.has(this.him)) {
+      this.doing(this.him, null);
+      this.heads.show(this.him, 'smiling', 1400);
     }
   }
 
