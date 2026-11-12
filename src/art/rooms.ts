@@ -480,18 +480,35 @@ const bathroom: RoomPainter = {
     drawFloor(ctx, 1280, FLOOR_Y, 220, 'tile', 0xaddbd7);
     drawDoor(ctx, 35, 170, 130, 330, 0xf3e3d3);
     drawWindow(ctx, 220, 95, 220, 190, time, { curtain: 0x9bd8d1, seed: 'bathwin' });
-    floorShadow(ctx, 490, 500, 300, 0.2);
-    fillRR(ctx, 340, 340, 285, 155, 16, '#9bceca');
-    fillRR(ctx, 325, 325, 315, 25, 12, '#fffdf8');
+    // Vanity: a cabinet with a counter slab, a basin set into it, and a mirror standing off the wall.
+    floorShadow(ctx, 490, 500, 300, 0.24);
+    box(ctx, 340, 342, 285, 153, 0, 0x9bceca, { shadow: false, r: 14 });
+    for (const dx of [358, 494]) {
+      ctx.lineWidth = 2.5;
+      ctx.strokeStyle = 'rgba(255,255,255,0.6)'; ctx.beginPath(); ctx.moveTo(dx, 480); ctx.lineTo(dx, 362); ctx.lineTo(dx + 116, 362); ctx.stroke();
+      ctx.strokeStyle = 'rgba(60,120,116,0.55)'; ctx.beginPath(); ctx.moveTo(dx + 116, 362); ctx.lineTo(dx + 116, 480); ctx.lineTo(dx, 480); ctx.stroke();
+      ellipse(ctx, dx + (dx < 400 ? 106 : 10), 420, 3, 9, '#f6efe6');
+    }
+    ctx.fillStyle = 'rgba(40,90,90,0.22)'; ctx.fillRect(342, 350, 281, 8);
+    box(ctx, 325, 332, 315, 18, 8, 0xfffdf8, { shadow: false, r: 8 });
+    ellipse(ctx, 482, 326, 58, 6, '#d8ecea'); ellipse(ctx, 482, 327, 50, 4, '#b8dcda'); // the basin, seen from above
+    ctx.save(); ctx.shadowColor = 'rgba(40,80,80,0.3)'; ctx.shadowBlur = 14; ctx.shadowOffsetY = 5;
     fillRR(ctx, 380, 160, 205, 150, 36, '#a8cfce');
+    ctx.restore();
+    bevelRR(ctx, 380, 160, 205, 150, 36, 0xa8cfce);
     fillRR(ctx, 391, 171, 183, 128, 28, vgrad(ctx, 171, 299, [[0, 0xd9f4f3], [1, 0xa9d7e3]]));
+    ctx.fillStyle = 'rgba(255,255,255,0.45)';
+    ctx.beginPath(); ctx.moveTo(400, 260); ctx.lineTo(470, 176); ctx.lineTo(492, 176); ctx.lineTo(408, 284); ctx.fill();
     ctx.strokeStyle = '#fff'; ctx.lineWidth = 6; ctx.beginPath(); ctx.moveTo(420, 294); ctx.lineTo(545, 294); ctx.stroke();
+    // tap
+    fillRR(ctx, 474, 306, 16, 20, 5, vgrad(ctx, 306, 326, [[0, 0xf4fbfb], [1, 0xb8d4d4]]));
     fillRR(ctx, 455, 315, 80, 14, 7, '#c6e7e2');
-    fillRR(ctx, 390, 390, 190, 38, 12, '#fff8f4');
-    fillRR(ctx, 395, 400, 180, 34, 10, '#ffc7d7');
-    fillRR(ctx, 395, 433, 180, 32, 10, '#fff8f4');
-    floorShadow(ctx, 920, 500, 300, 0.22);
-    fillRR(ctx, 760, 205, 300, 295, 15, '#c5e8e6');
+    // towel hanging off the counter edge
+    bevelRR(ctx, 390, 390, 190, 38, 12, 0xfff8f4);
+    bevelRR(ctx, 395, 400, 180, 34, 10, 0xffc7d7);
+    bevelRR(ctx, 395, 433, 180, 32, 10, 0xfff8f4);
+    floorShadow(ctx, 920, 500, 300, 0.26);
+    bevelRR(ctx, 760, 205, 300, 295, 15, 0xc5e8e6, { drop: 10 });
     fillRR(ctx, 774, 219, 270, 281, 10, vgrad(ctx, 219, 500, [[0, 0xe4f6f3], [1, 0xb7dcda]]));
     ctx.fillStyle = 'rgba(255,255,255,0.56)'; ctx.fillRect(785, 230, 242, 260);
     ctx.strokeStyle = '#fff'; ctx.lineWidth = 9; ctx.strokeRect(760, 205, 300, 295);
@@ -502,40 +519,36 @@ const bathroom: RoomPainter = {
       ctx.strokeStyle = 'rgba(91,177,200,0.75)'; ctx.lineWidth = 3;
       ctx.beginPath(); ctx.moveTo(828 + i * 5, 292); ctx.lineTo(819 + i * 5, 325 + (i % 3) * 8); ctx.stroke();
     }
-    fillRR(ctx, 1085, 245, 100, 235, 8, '#d6ebe7');
-    fillRR(ctx, 1100, 260, 70, 50, 8, '#fff8f4');
-    fillRR(ctx, 1100, 330, 70, 50, 8, '#f4b4c6');
-    drawDoor(ctx, 1090, 170, 150, 330, 0xf3e3d3);
+    // Towel cabinet (where a door used to be): open shelves of rolled towels, a jar of bath bombs, a basket below.
+    floorShadow(ctx, 1160, 500, 190, 0.3);
+    ctx.beginPath(); ctx.moveTo(1240, 236); ctx.lineTo(1254, 244); ctx.lineTo(1254, 496); ctx.lineTo(1240, 500); ctx.closePath();
+    ctx.fillStyle = vgrad(ctx, 236, 500, [[0, 0xbcdcd6], [1, 0x9cc4bc]]); ctx.fill();
+    bevelRR(ctx, 1080, 236, 160, 264, 8, 0xd6ebe7, { drop: 10 });
+    box(ctx, 1074, 230, 172, 10, 6, 0xe8f6f3, { shadow: false, r: 3 });
+    const towels = [0xfff8f4, 0xf4b4c6, 0xb8e0f0, 0xfff1c8];
+    for (const [k, sy] of [262, 330, 398].entries()) {
+      ctx.fillStyle = vgrad(ctx, sy, sy + 56, [[0, 0x8fb8b0], [1, 0xa8ccc6]]); ctx.fillRect(1092, sy, 136, 56);
+      ctx.fillStyle = 'rgba(40,80,80,0.3)'; ctx.fillRect(1092, sy, 136, 8);
+      if (k < 2) {
+        for (let i = 0; i < 3; i++) { // rolled towels: cylinders seen end-on
+          const tc = towels[(i + k) % towels.length], tx = 1112 + i * 44, ty = sy + 34;
+          ellipse(ctx, tx, ty + 18, 20, 4, 'rgba(40,80,80,0.25)');
+          ellipse(ctx, tx, ty, 20, 19, hex(shade(tc, -0.08)));
+          ellipse(ctx, tx - 2, ty - 2, 15, 14, hex(tc));
+          ctx.strokeStyle = hex(shade(tc, -0.2), 0.7); ctx.lineWidth = 1.5; ctx.beginPath(); ctx.arc(tx - 2, ty - 2, 7, 0, Math.PI * 1.6); ctx.stroke();
+        }
+      } else {
+        ellipse(ctx, 1132, sy + 52, 26, 4, 'rgba(40,80,80,0.25)');
+        fillRR(ctx, 1108, sy + 12, 48, 42, 10, 'rgba(220,245,250,0.75)');
+        for (const [bx, bc] of [[1120, 0xffb8cc], [1136, 0xc8b8f4], [1146, 0xfff0a8], [1128, 0xa8e0d0]] as [number, number][]) ellipse(ctx, bx, sy + 40 - (bx % 3) * 4, 7, 7, hex(bc));
+        ellipse(ctx, 1132, sy + 12, 24, 5, '#e8f8fb');
+        ctx.fillStyle = 'rgba(255,255,255,0.6)'; ctx.fillRect(1112, sy + 18, 5, 28);
+        drawPlant(ctx, 1196, sy + 54, 0.32, 0xf4b4c6);
+      }
+      box(ctx, 1088, sy + 56, 144, 6, 4, 0xe2f2ef, { shadow: false, r: 1 });
+    }
     drawPlant(ctx, 690, 500, 0.64, 0x91c9a0);
     drawRug(ctx, 500, 610, 245, 45, 0xf4c5d3, 0xffffff);
-  },
-};
-
-const comfortroom: RoomPainter = {
-  bg(ctx, time) {
-    drawWall(ctx, 1280, FLOOR_Y, { base: 0xf9e9ef, accent: 0xe7a6bb, pattern: 'dots', wainscot: 0xf6dfe7 });
-    drawFloor(ctx, 1280, FLOOR_Y, 220, 'tile', 0xe9cad4);
-    drawDoor(ctx, 35, 170, 130, 330, 0xf3e3d3);
-    drawWindow(ctx, 220, 100, 190, 170, time, { curtain: 0xf1b6c8, seed: 'restwin' });
-    floorShadow(ctx, 680, 500, 265, 0.23);
-    fillRR(ctx, 550, 265, 260, 240, 16, '#e8b6c7');
-    fillRR(ctx, 564, 280, 232, 210, 12, vgrad(ctx, 280, 490, [[0, 0xfff9f8], [1, 0xe7e2ea]]));
-    fillRR(ctx, 610, 325, 160, 72, 26, '#fffaf8');
-    ellipse(ctx, 690, 399, 75, 43, '#fffaf8');
-    ellipse(ctx, 690, 400, 50, 25, '#b8dfe2');
-    ctx.strokeStyle = '#d7cbd4'; ctx.lineWidth = 5; ctx.beginPath(); ctx.ellipse(690, 400, 50, 25, 0, 0, Math.PI * 2); ctx.stroke();
-    fillRR(ctx, 605, 448, 170, 36, 16, '#e6dbe2');
-    floorShadow(ctx, 1010, 500, 250, 0.18);
-    fillRR(ctx, 925, 360, 170, 130, 12, '#cb9fb0');
-    fillRR(ctx, 906, 344, 208, 25, 10, '#fffaf8');
-    ellipse(ctx, 1010, 320, 86, 69, '#fffaf8');
-    ellipse(ctx, 1010, 320, 75, 58, '#b9dbe0');
-    ctx.strokeStyle = '#fff'; ctx.lineWidth = 8; ctx.beginPath(); ctx.moveTo(950, 410); ctx.lineTo(1070, 410); ctx.stroke();
-    fillRR(ctx, 965, 382, 90, 15, 7, '#c7e4df');
-    ctx.fillStyle = '#e8577d'; heartPath(ctx, 1010, 214, 27); ctx.fill();
-    drawDoor(ctx, 1090, 170, 150, 330, 0xf3e3d3);
-    drawRug(ctx, 800, 620, 250, 42, 0xffdce6, 0xffffff);
-    drawPlant(ctx, 440, 500, 0.55, 0xf1b6c8);
   },
 };
 
@@ -810,4 +823,4 @@ const school: RoomPainter = {
   },
 };
 
-export const ROOMS: Record<LocationId, RoomPainter> = { bedroom, livingroom, kitchen, bathroom, comfortroom, backyard, school };
+export const ROOMS: Record<LocationId, RoomPainter> = { bedroom, livingroom, kitchen, bathroom, backyard, school };

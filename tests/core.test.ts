@@ -271,7 +271,9 @@ describe('content integrity', () => {
     expect(LOCATIONS.kitchen.hotspots.find((h) => h.id === 'kitchen-table-meal')?.action).toEqual({ kind: 'need', action: 'eat' });
     expect(LOCATIONS.kitchen.hotspots.find((h) => h.id === 'kitchen-table')?.action.kind).toBe('dialogue');
     expect(LOCATIONS.bathroom.hotspots.some((h) => h.action.kind === 'need' && h.action.action === 'shower')).toBe(true);
-    expect(LOCATIONS.comfortroom.hotspots.some((h) => h.action.kind === 'need' && h.action.action === 'toilet')).toBe(true);
+    // The comfort room (toilet) was removed; nothing leads there any more.
+    expect((LOCATIONS as Record<string, unknown>).comfortroom).toBeUndefined();
+    expect(Object.values(LOCATIONS).every((l) => l.hotspots.every((h) => h.action.kind !== 'door' || (h.action.to as string) !== 'comfortroom'))).toBe(true);
   });
   it('doors never overlap, and going through one lands you at the door back', () => {
     const stand = (h: { x: number; w: number; standX?: number }) => h.standX ?? h.x + h.w / 2;

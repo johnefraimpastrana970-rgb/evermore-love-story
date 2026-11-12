@@ -198,34 +198,11 @@ export const LOCATIONS: Record<LocationId, LocationDef> = {
         action: { kind: 'door', to: 'livingroom', spawnX: 1775 } },
       { id: 'bathroom-shower', label: 'Take a shower', x: 760, y: 210, w: 300, h: 290, standX: 720,
         action: { kind: 'need', action: 'shower' } },
-      { id: 'bathroom-restroom', label: 'Comfort Room → Toilet', x: 1090, y: 170, w: 150, h: 330, standX: 1110,
-        action: { kind: 'door', to: 'comfortroom', spawnX: 1080 } },
-    ],
-  },
-
-  comfortroom: {
-    id: 'comfortroom',
-    name: 'Comfort Room',
-    subtitle: 'A little private corner',
-    width: 1280,
-    floorTop: 545,
-    floorBottom: 690,
-    indoor: true,
-    music: 'cozy',
-    ambience: 'room',
-    spawnX: 230,
-    icon: 'heart',
-    mapPos: { x: 50, y: 43 },
-    lights: [{ x: 830, y: 250, r: 200, color: 0xffc7d7, on: EVENING }],
-    collectibleKinds: ['sparkle', 'heart'],
-    collectibleSpots: [{ x: 270, y: 650 }, { x: 540, y: 620 }, { x: 900, y: 670 }, { x: 1150, y: 630 }],
-    hotspots: [
-      { id: 'comfortroom-hall', label: 'Hallway → Living Room', x: 35, y: 170, w: 130, h: 330, standX: 145,
-        action: { kind: 'door', to: 'livingroom', spawnX: 1775 } },
-      { id: 'comfortroom-toilet', label: 'Use the toilet', x: 520, y: 335, w: 230, h: 165, standX: 485,
-        action: { kind: 'need', action: 'toilet' } },
-      { id: 'comfortroom-bathroom', label: 'Bathroom → Shower', x: 1090, y: 170, w: 150, h: 330, standX: 1110,
-        action: { kind: 'door', to: 'bathroom', spawnX: 1080 } },
+      { id: 'bathroom-towels', label: 'Towel Cabinet', x: 1080, y: 230, w: 160, h: 270,
+        action: { kind: 'inspect', texts: [
+          { text: 'Fluffy towels, folded into little hearts. Someone takes towel origami very seriously.' },
+          { if: { time: ['night'] }, text: 'Two matching robes hang side by side. One says “hers”, one says “his”.' },
+        ] } },
     ],
   },
 
@@ -329,5 +306,5 @@ export const LOCATIONS: Record<LocationId, LocationDef> = {
   },
 };
 
-export const LOCATION_ORDER: LocationId[] = ['bedroom', 'livingroom', 'kitchen', 'bathroom', 'comfortroom', 'backyard', 'school'];
+export const LOCATION_ORDER: LocationId[] = ['bedroom', 'livingroom', 'kitchen', 'bathroom', 'backyard', 'school'];
 export { ALL };

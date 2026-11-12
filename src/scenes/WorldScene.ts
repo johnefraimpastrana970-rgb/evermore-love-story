@@ -34,7 +34,9 @@ import { PetWorld } from '../pets/world';
 import { openPetCard } from '../pets/card';
 import { collectGift } from '../pets/pets';
 import { openCare } from '../pets/care';
-import { HomeItems } from '../home/world';
+import { HomeItems, type ItemSpot } from '../home/world';
+import { ITEM_INTERACT } from '../home/data';
+import { isDecorating } from '../home/decorate';
 import { move as homeMove } from '../home/logic';
 import { captureHomeMemory } from '../home/memories';
 
@@ -49,7 +51,7 @@ const hotspotLabel = (h: Hotspot) => {
 interface WorldData { location: LocationId; spawnX?: number; spawnY?: number; fromLoad?: boolean; intro?: boolean; needAction?: NeedAction; from?: LocationId }
 
 /** Rooms he never follows her into: he waits outside the bathroom door in the living room. */
-const PRIVATE: LocationId[] = ['bathroom', 'comfortroom'];
+const PRIVATE: LocationId[] = ['bathroom'];
 /** Where he waits for her, just beside the living room's bathroom door. */
 const WAIT_SPOT = { x: 1640, dy: -10 };
 /** Places he wanders off to on his own now and then, and what he does there. */
@@ -61,7 +63,7 @@ const SOLO_SPOTS: Partial<Record<LocationId, { x: number; act: 'read' | 'phone' 
   school: [{ x: 1820, act: 'read' }, { x: 670, act: 'phone' }],
 };
 
-interface Target { kind: 'hotspot' | 'him'; x: number; label: string; h?: Hotspot }
+interface Target { kind: 'hotspot' | 'him' | 'item'; x: number; label: string; h?: Hotspot; item?: string }
 
 /** Per-character motion state for smooth, non-stiff movement. */
 interface Motion {
@@ -96,7 +98,7 @@ export class WorldScene extends Phaser.Scene {
   private playerAction = false;
   private companionPaused = false;
   /** He's off doing his own thing (reading, on his phone) instead of following her. */
-  private solo: { x: number; act: 'read' | 'phone'; until: number; arrived: boolean } | null = null;
+  private solo: { x: number; act?: 'read' | 'phone'; until: number; arrived: boolean; item?: string } | null = null;
   private soloT = 0;
   private needUiTimer = 0;
   private leaving = false;
@@ -319,6 +321,11 @@ export class WorldScene extends Phaser.Scene {
     this.couple.buildProps();
     this.items = new HomeItems(this, this.loc);
     this.items.onSelect = (id) => bus.emit('home:select', id);
+    this.items.onUse = (id) => {
+      if (store.blocked || this.busy) return;
+      const t = this.itemTarget(id);
+      if (t) { audio.unlock(); audio.sfx('click'); this.walkToTarget(t); }
+    };
     this.items.build();
     this.pets = new PetWorld({
       scene: this, loc: this.loc, player: () => this.player,
@@ -887,7 +894,7 @@ export class WorldScene extends Phaser.Scene {
 
   private useNeedShortcut(action: NeedAction) {
     if (store.blocked || this.busy || this.leaving) return;
-    const destination: LocationId = action === 'eat' ? 'kitchen' : action === 'shower' ? 'bathroom' : 'comfortroom';
+    const destination: LocationId = action === 'eat' ? 'kitchen' : 'bathroom';
     const loc = LOCATIONS[destination];
     const target = this.needTarget(action, loc);
     if (this.loc.id === destination) {
@@ -914,6 +921,8 @@ export class WorldScene extends Phaser.Scene {
         await talkToHim();
       } else if (t.h) {
         await this.useHotspot(t.h);
+      } else if (t.item) {
+        await this.useItem(t.item);
       }
     } finally {
       this.busy = false;
@@ -939,6 +948,89 @@ export class WorldScene extends Phaser.Scene {
     } finally {
       if (joins) this.couple.react(a.kind === 'photo' ? 'inspect' : (a.kind as 'minigame' | 'inspect' | 'secret' | 'dialogue'));
     }
+  }
+
+  // ---------------------------------------------------------------- placed items (decorations & furniture)
+  /** Where she stands to use a placed item: on it for seats, otherwise just beside it on the side she's coming from. */
+  private itemTarget(id: string): Target | null {
+    const sp = this.items?.spot(id);
+    const it = sp && ITEM_INTERACT[sp.item];
+    if (!sp || !it) return null;
+    const side = this.player.x < sp.x ? -1 : 1;
+    const x = it.pose === 'sit' ? sp.x : sp.x + side * (sp.w / 2 + 26);
+    return { kind: 'item', x: Phaser.Math.Clamp(x, 50, this.loc.width - 50), label: it.label, item: id };
+  }
+
+  /** She uses a placed item: a pose (read, water, sit on it), a face, a line, an effect; pets and he may join in. */
+  private async useItem(id: string) {
+    const sp = this.items?.spot(id);
+    const it = sp && ITEM_INTERACT[sp.item];
+    if (!sp || !it || !this.items) return;
+    const player = this.player;
+    const wait = (ms: number) => new Promise<void>((r) => this.time.delayedCall(store.settings.reducedMotion ? Math.min(ms, 700) : ms, r));
+    this.mo(player).faceT = sp.x >= player.x ? 1 : -1;
+    const moment = () => {
+      this.heads.show(player, it.face as Face, 3200);
+      if (it.fx) this.items?.fx(id, it.fx);
+      this.couple.say(player, pickOne(it.lines), 2400);
+      if (it.pets) this.pets?.investigate(sp.x, sp.y);
+      this.partnerNotices(it.his.lines);
+    };
+    if (it.pose === 'sit') await this.sitOnItem(sp, it.seat ?? 30, moment, wait);
+    else {
+      if (it.pose) this.doing(player, it.pose);
+      moment();
+      await wait(it.pose ? 2700 : 1700);
+      if (it.pose && this.acts.has(player)) this.doing(player, null);
+    }
+    this.heads.show(player, 'happy', 1200);
+    // Using each kind of item for the first time in a day gives a little XP.
+    const flag = dayFlag(`item-${sp.item}`, store.today());
+    if (!store.state.flags[flag]) { store.state.flags[flag] = true; applyEffects([{ type: 'xp', amount: 3 }]); store.save(); }
+  }
+
+  /** Hop onto a seat item (beanbag, cushions), sit a while, hop back off. */
+  private async sitOnItem(sp: ItemSpot, seat: number, moment: () => void, wait: (ms: number) => Promise<void>) {
+    const player = this.player;
+    const shadow = this.shadows.get(player);
+    const from = { x: player.x, y: player.y };
+    const sc = Math.abs(player.scaleY) || 0.9;
+    // Hips (60 frame px above the feet) on the seat's surface.
+    const to = { x: sp.x, y: sp.y - seat * sp.scale + 60 * sc };
+    const hop = (a: { x: number; y: number }, b: { x: number; y: number }) => new Promise<void>((done) => {
+      const o = { t: 0 };
+      this.tweens.add({ targets: o, t: 1, duration: store.settings.reducedMotion ? 1 : 380, ease: 'Sine.easeInOut',
+        onUpdate: () => player.setPosition(a.x + (b.x - a.x) * o.t, a.y + (b.y - a.y) * o.t - Math.sin(Math.PI * o.t) * 30),
+        onComplete: () => done() });
+    });
+    this.playerAction = true;
+    try {
+      shadow?.setVisible(false);
+      player.setDepth(sp.y + 2);
+      audio.sfx('plop');
+      await hop(from, to);
+      player.play(`${this.herKey}-sit`, true);
+      player.setDepth(sp.y + 2);
+      moment();
+      await wait(2800);
+      player.play(`${this.herKey}-idle`, true);
+      await hop(to, from);
+    } finally {
+      if (player.active) { player.setPosition(from.x, from.y).setDepth(from.y); shadow?.setVisible(true); }
+      this.playerAction = false;
+    }
+  }
+
+  /** When she does something nearby, he sometimes reacts (unless he's busy with his own thing). */
+  private partnerNotices(lines: string[]) {
+    const him = this.him;
+    if (!him || this.solo || Math.abs(him.x - this.player.x) > 500 || Math.random() < 0.4) return;
+    this.mo(him).faceT = this.player.x > him.x ? 1 : -1;
+    this.time.delayedCall(900, () => {
+      if (!this.him?.active) return;
+      this.heads.show(him, 'smiling', 1800);
+      this.couple.say(him, pickOne(lines), 2000);
+    });
   }
 
   /** Use a hotspot; at some she does something with her hands first (cooking, reading, watering, picking flowers). */
@@ -1054,12 +1146,9 @@ export class WorldScene extends Phaser.Scene {
       bumpStat('meals');
       captureHomeMemory('first-dinner');
       toast('A little meal at the kitchen table feels just right.', 'cookie', 'good');
-    } else if (action === 'shower') {
+    } else {
       bumpStat('showers');
       toast('Fresh, clean, and ready for the day!', 'sparkle', 'good');
-    } else {
-      bumpStat('bathroomVisits');
-      toast('All refreshed and ready to go.', 'heart', 'good');
     }
 
     const rewardFlag = dayFlag(`need-${action}`, store.today());
@@ -1080,18 +1169,8 @@ export class WorldScene extends Phaser.Scene {
     const camera = this.cameras.main;
     const shadow = this.shadows.get(player);
     let privacyLayer: Phaser.GameObjects.Graphics | undefined;
-    let privacyFrame: Phaser.GameObjects.Graphics | undefined;
     const steamPuffs: Phaser.GameObjects.Ellipse[] = [];
     this.playerAction = true;
-    this.companionPaused = action === 'toilet';
-    if (this.companionPaused && this.him) {
-      const partnerMotion = this.mo(this.him);
-      partnerMotion.moving = false;
-      partnerMotion.vx = 0;
-      partnerMotion.vy = 0;
-      this.setStyle(this.him, null);
-      this.him.play(`${this.hisKey}-idle`, true);
-    }
     this.mo(player).moving = false;
     this.mo(player).vx = 0;
     this.mo(player).vy = 0;
@@ -1178,58 +1257,6 @@ export class WorldScene extends Phaser.Scene {
         this.couple.say(player, pickOne(['All fresh ♡', 'Ahh, so much better.', 'Squeaky clean!']), 1800);
         await pause(800);
         await movePlayer(originalX);
-      } else {
-        // Start: she walks into the stall and the door swings shut behind her.
-        await movePlayer(680);
-        privacyFrame = this.add.graphics().setDepth(8498);
-        privacyFrame.lineStyle(12, 0xe8b6c7, 1);
-        privacyFrame.strokeRoundedRect(536, 268, 288, 384, 18);
-        privacyFrame.lineStyle(4, 0xfff8f8, 1);
-        privacyFrame.strokeRoundedRect(548, 280, 264, 360, 12);
-        privacyLayer = this.add.graphics().setPosition(680, 460).setDepth(8499).setScale(0.06, 1);
-        privacyLayer.fillStyle(0xf1d1dc, 1);
-        privacyLayer.fillRoundedRect(-130, -180, 260, 360, 12);
-        privacyLayer.fillStyle(0xe8b6c7, 1);
-        privacyLayer.fillRoundedRect(-119, -169, 238, 338, 8);
-        privacyLayer.lineStyle(3, 0xfff8f8, 0.95);
-        privacyLayer.strokeRoundedRect(-119, -169, 238, 338, 8);
-        privacyLayer.fillStyle(0xffffff, 0.8);
-        privacyLayer.fillCircle(74, 0, 7);
-        privacyLayer.fillStyle(0xffffff, 0.9); // little heart sign on the door
-        privacyLayer.fillCircle(-6, -110, 7); privacyLayer.fillCircle(6, -110, 7); privacyLayer.fillTriangle(-13, -107, 13, -107, 0, -94);
-        const door = privacyLayer;
-        await new Promise<void>((resolve) => {
-          this.tweens.add({ targets: player, alpha: 0, duration: reduced ? 0 : 300 });
-          if (shadow) this.tweens.add({ targets: shadow, alpha: 0, duration: reduced ? 0 : 300 });
-          this.tweens.add({ targets: door, scaleX: 1, duration: reduced ? 0 : 400, ease: 'Sine.easeInOut', onComplete: () => resolve() });
-        });
-        player.setVisible(false);
-        audio.sfx('close');
-        // Main: a quiet moment, then the flush.
-        await pause(1500);
-        audio.sfx('water');
-        await pause(600);
-        // End: the door opens and she steps out, then washes her hands at the sink.
-        audio.sfx('open');
-        player.setVisible(true);
-        await new Promise<void>((resolve) => {
-          this.tweens.add({ targets: door, scaleX: 0.06, duration: reduced ? 0 : 400, ease: 'Sine.easeInOut', onComplete: () => resolve() });
-          this.tweens.add({ targets: player, alpha: 1, duration: reduced ? 0 : 300, delay: reduced ? 0 : 120 });
-          if (shadow) this.tweens.add({ targets: shadow, alpha: 1, duration: reduced ? 0 : 300 });
-        });
-        if (this.loc.id === 'comfortroom') {
-          await movePlayer(1010);
-          audio.sfx('water');
-          this.heads.show(player, 'smiling', 1600);
-          for (let i = 0; i < 5; i++) {
-            this.time.delayedCall(i * 160, () => {
-              const b = this.add.circle(1000 + Math.random() * 24, 392, 3 + Math.random() * 3, 0xffffff, 0.85).setDepth(8502).setStrokeStyle(1, 0xa8d8e8);
-              this.tweens.add({ targets: b, y: 360 - Math.random() * 20, alpha: 0, duration: 700, onComplete: () => b.destroy() });
-            });
-          }
-          await pause(1100);
-        }
-        await movePlayer(originalX);
       }
     } finally {
       this.tweens.killTweensOf(player);
@@ -1237,7 +1264,6 @@ export class WorldScene extends Phaser.Scene {
       player.setPosition(originalX, originalY).setScale(originalScaleX, originalScaleY).setDepth(originalY).setAlpha(1).setVisible(true);
       shadow?.setPosition(originalX, originalY - 2).setDepth(originalY - 1).setAlpha(1);
       privacyLayer?.destroy();
-      privacyFrame?.destroy();
       steamPuffs.forEach((steam) => { this.tweens.killTweensOf(steam); steam.destroy(); });
       if (player.active) camera.startFollow(player, true, 0.09, 0.09, 0, 120); // (the room may have reloaded meanwhile)
       this.playerAction = false;
@@ -1414,12 +1440,20 @@ export class WorldScene extends Phaser.Scene {
         best = { kind: 'hotspot', x: sx, label: hotspotLabel(o.h), h: o.h };
       }
     }
+    // Placed decorations and furniture can be used too.
+    if (!isDecorating()) {
+      for (const sp of this.items?.spots() ?? []) {
+        const t = this.itemTarget(sp.id);
+        const near = t ? Math.abs(t.x - this.player.x) : Infinity;
+        if (t && near < 70 && near < bestD) { bestD = near; best = t; }
+      }
+    }
     if (this.him) {
       const d = Phaser.Math.Distance.Between(this.him.x, this.him.y, this.player.x, this.player.y);
       if (d < 120 && d < bestD + 30) best = { kind: 'him', x: this.him.x, label: `Talk to ${store.partnerName()}` };
     }
     if (!locked) {
-      if (best?.label !== this.nearest?.label || best?.h !== this.nearest?.h) {
+      if (best?.label !== this.nearest?.label || best?.h !== this.nearest?.h || best?.item !== this.nearest?.item) {
         this.nearest = best;
         setPrompt(best ? best.label : null);
         this.drawHighlight(best?.h ?? null);
@@ -1506,8 +1540,16 @@ export class WorldScene extends Phaser.Scene {
       if (now > solo.until || far || leaving || this.couple.active) { this.endSolo(); return null; }
       if (!solo.arrived && !himMoving && Math.abs(him.x - solo.x) < 14) {
         solo.arrived = true;
-        this.doing(him, solo.act);
-        this.heads.show(him, 'reading', solo.until - now);
+        const sp = solo.item ? this.items?.spot(solo.item) : undefined;
+        const his = sp ? ITEM_INTERACT[sp.item]?.his : undefined;
+        if (sp) this.mo(him).faceT = sp.x > him.x ? 1 : -1;
+        if (solo.act) { this.doing(him, solo.act); this.heads.show(him, 'reading', solo.until - now); }
+        else this.heads.show(him, (his?.face ?? 'smiling') as Face, 3000);
+        if (sp && his) {
+          if (his.fx) this.items?.fx(sp.id, his.fx);
+          if (Math.random() < 0.6) this.couple.say(him, pickOne(his.lines), 2000);
+          if (his.fx === 'notes' || his.fx === 'warm') this.pets?.investigate(sp.x, sp.y); // music and warmth draw the pets in
+        }
       }
       return solo;
     }
@@ -1516,14 +1558,17 @@ export class WorldScene extends Phaser.Scene {
     this.soloT -= dt;
     if (this.soloT > 0) return null;
     this.soloT = 25 + Math.random() * 15;
-    const spots = (SOLO_SPOTS[this.loc.id] ?? []).filter((p) => {
-      const d = Math.abs(p.x - this.player.x);
-      return d > 110 && d < 460;
-    });
+    // Places in the room, plus whatever she's decorated it with (he likes those best).
+    const items = (this.items?.spots() ?? []).filter((s) => ITEM_INTERACT[s.item]).map((s) => ({
+      x: Phaser.Math.Clamp(s.x + (s.x > him.x ? -1 : 1) * (s.w / 2 + 24), 50, this.loc.width - 50),
+      act: ITEM_INTERACT[s.item].his.act, item: s.id,
+    }));
+    const near = (p: { x: number }) => { const d = Math.abs(p.x - this.player.x); return d > 110 && d < 520; };
+    const spots: { x: number; act?: 'read' | 'phone'; item?: string }[] = [...(SOLO_SPOTS[this.loc.id] ?? []).filter(near), ...items.filter(near), ...items.filter(near)];
     if (!spots.length || Math.random() < 0.25) return null;
     const spot = pickOne(spots);
     this.solo = { ...spot, until: this.time.now + 8000 + Math.random() * 4000, arrived: false };
-    if (Math.random() < 0.5) this.couple.say(him, spot.act === 'read' ? pickOne(['Ooh, I’ll grab a book.', 'Gonna read a bit ♡']) : pickOne(['One sec, checking something.', 'Brb ♡']), 1600);
+    if (Math.random() < 0.5 && !spot.item) this.couple.say(him, spot.act === 'read' ? pickOne(['Ooh, I’ll grab a book.', 'Gonna read a bit ♡']) : pickOne(['One sec, checking something.', 'Brb ♡']), 1600);
     return this.solo;
   }
 

@@ -53,12 +53,38 @@ export function openDecorate(): Promise<void> {
     root.innerHTML = `<div class="hm-sheet"><header><h3>🎨 Decorating: ${esc(LOCATIONS[room].name)}</h3><span class="hm-tok"></span>
       <span class="hm-pan"><button data-pan="-1" aria-label="Look left">◀</button><button data-pan="1" aria-label="Look right">▶</button></span>
       <button class="pz-btn small" data-done>Done ✓</button></header>
-      <nav class="hm-tabs"></nav><div class="hm-body"></div></div>`;
+      <nav class="hm-tabs"></nav><div class="hm-body"></div></div>
+      <div class="hm-float" role="toolbar" aria-label="Placing an item"><img alt=""><span><b></b><small>Drag it anywhere in the room</small></span>
+        <button class="hm-fpan" data-fpan="-1" aria-label="Look left">◀</button><button class="hm-fpan" data-fpan="1" aria-label="Look right">▶</button>
+        <button class="pz-btn small ghost" data-fputaway>Put away</button><button class="pz-btn small" data-fdone>Done ✓</button></div>`;
     uiRoot().appendChild(root);
     store.block();
     bus.emit('home:edit', true);
     requestAnimationFrame(() => root.classList.add('in'));
     const body = root.querySelector('.hm-body') as HTMLElement;
+
+    // Placing mode: the sheet and the HUD get out of the way so the whole room is visible while dragging an item.
+    const float = root.querySelector('.hm-float') as HTMLElement;
+    let placingNow = false;
+    const placing = (on: boolean) => {
+      const sel = on && selected ? h.items.find((i) => i.id === selected) : undefined;
+      placingNow = !!sel;
+      root.classList.toggle('placing', placingNow);
+      document.body.classList.toggle('hm-placing', placingNow);
+      if (sel) {
+        (float.querySelector('img') as HTMLImageElement).src = itemPreview(sel.item);
+        (float.querySelector('b') as HTMLElement).textContent = itemDef(sel.item)!.name;
+      }
+    };
+    float.querySelectorAll<HTMLElement>('[data-fpan]').forEach((b) => b.addEventListener('click', () => bus.emit('home:pan', Number(b.dataset.fpan))));
+    float.querySelector('[data-fdone]')!.addEventListener('click', () => { audio.sfx('click'); placing(false); render(); });
+    float.querySelector('[data-fputaway]')!.addEventListener('click', () => {
+      if (selected) storeItem(h, selected);
+      selected = null;
+      audio.sfx('close');
+      placing(false);
+      changed(false);
+    });
 
     const changed = (look = true) => {
       if (room === 'bedroom') captureHomeMemory('first-bedroom-decor');
@@ -115,8 +141,8 @@ export function openDecorate(): Promise<void> {
       } else {
         const here = h.items.filter((i) => i.room === room).length;
         const sel = selected ? h.items.find((i) => i.id === selected) : undefined;
-        body.innerHTML = `${sel ? `<div class="hm-selected"><img src="${itemPreview(sel.item)}" alt=""><span><b>${esc(itemDef(sel.item)!.name)}</b><small>Drag it around the room</small></span>
-            <button class="pz-btn small ghost" data-putaway>Put away</button></div>` : `<p class="hm-hint">Tap an item in the room to select it, or drag it to move it. ${here}/${MAX_ITEMS_PER_ROOM} placed here.</p>`}
+        body.innerHTML = `${sel ? `<div class="hm-selected"><img src="${itemPreview(sel.item)}" alt=""><span><b>${esc(itemDef(sel.item)!.name)}</b><small>Selected</small></span>
+            <button class="pz-btn small" data-move>Move ✥</button><button class="pz-btn small ghost" data-putaway>Put away</button></div>` : `<p class="hm-hint">Tap an item in the room to select it, or drag it to move it. ${here}/${MAX_ITEMS_PER_ROOM} placed here.</p>`}
           <div class="hm-row">${ITEMS.map((it) => {
             const n = spare(h, it.id);
             return `<div class="hm-card item"><img src="${itemPreview(it.id)}" alt=""><b>${esc(it.name)}</b>
@@ -139,14 +165,24 @@ export function openDecorate(): Promise<void> {
           store.save();
           bus.emit('home:items', { placed: p });
           selected = p.id;
+          tab = 'items';
           render();
+          placing(true); // full view while she puts it where she wants
         }));
+        body.querySelector('[data-move]')?.addEventListener('click', () => { audio.sfx('click'); placing(true); });
       }
     };
-    const offSel = bus.on('home:select', (id: string | null) => { selected = id; if (tab === 'items') render(); else if (id) { tab = 'items'; render(); } });
+    // Tapping an item in the room picks it up: straight into placing mode (full view) to drag it.
+    const offSel = bus.on('home:select', (id: string | null) => {
+      selected = id;
+      if (id) tab = 'items';
+      render();
+      if (id) placing(true);
+    });
     root.querySelectorAll<HTMLElement>('[data-pan]').forEach((b) => b.addEventListener('click', () => bus.emit('home:pan', Number(b.dataset.pan))));
     const leave = () => {
       openNow = false;
+      document.body.classList.remove('hm-placing');
       offSel();
       window.removeEventListener('keydown', onKey, true);
       root.classList.remove('in');
@@ -157,7 +193,11 @@ export function openDecorate(): Promise<void> {
       afterChange();
       resolve();
     };
-    const onKey = (e: KeyboardEvent) => { if (e.code === 'Escape') { e.preventDefault(); e.stopImmediatePropagation(); leave(); } };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.code !== 'Escape') return;
+      e.preventDefault(); e.stopImmediatePropagation();
+      if (placingNow) { placing(false); render(); } else leave(); // Esc while placing just brings the sheet back
+    };
     window.addEventListener('keydown', onKey, true);
     root.querySelector('[data-done]')!.addEventListener('click', leave);
     render();

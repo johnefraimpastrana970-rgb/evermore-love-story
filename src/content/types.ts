@@ -3,8 +3,8 @@
 export type TimeOfDay = 'morning' | 'day' | 'sunset' | 'night';
 export const TIMES: TimeOfDay[] = ['morning', 'day', 'sunset', 'night'];
 
-export type LocationId = 'bedroom' | 'livingroom' | 'kitchen' | 'bathroom' | 'comfortroom' | 'backyard' | 'school';
-export type NeedAction = 'eat' | 'shower' | 'toilet';
+export type LocationId = 'bedroom' | 'livingroom' | 'kitchen' | 'bathroom' | 'backyard' | 'school';
+export type NeedAction = 'eat' | 'shower';
 export type MinigameId = 'memory' | 'cooking' | 'grill-flip' | 'skewer-memory' | 'stars' | 'scramble' | 'slider';
 export type CollectibleKind = 'heart' | 'petal' | 'star' | 'note' | 'sparkle';
 export type MusicMood = 'title' | 'cozy' | 'kitchen' | 'school' | 'outdoor' | 'night' | 'festive';

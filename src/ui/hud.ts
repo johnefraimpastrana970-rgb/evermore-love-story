@@ -58,9 +58,7 @@ export function initHud() {
         <span class="need-icon" aria-hidden="true">🍽️</span><small>Eat · <b data-hunger-value>100</b>%</small>
         <i class="hunger-track" role="progressbar" aria-label="Hunger" aria-valuemin="0" aria-valuemax="100" aria-valuenow="100"><i data-hunger-bar></i></i>
       </button>
-      <button class="need-btn" data-need="shower" title="Take a shower" aria-label="Take a shower"><span class="need-icon" aria-hidden="true">🚿</span><small>Shower</small></button>
-      <button class="need-btn" data-need="toilet" title="Use the comfort room" aria-label="Use the toilet"><span class="need-icon" aria-hidden="true">💩</span><small>Toilet</small></button>
-    </div>
+      <button class="need-btn" data-need="shower" title="Take a shower" aria-label="Take a shower"><span class="need-icon" aria-hidden="true">🚿</span><small>Shower</small></button>    </div>
     <button class="hud-quest hidden"></button>
     <div class="hud-occ hidden"></div>
     <nav class="hud-btns"><button data-phone title="Phone (P)"><img src="${PHONE_GLYPH}" alt=""><span>Phone</span><i class="badge hidden"></i></button>${BUTTONS.map(([id, ic, label, key]) =>

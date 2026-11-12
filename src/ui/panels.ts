@@ -482,7 +482,7 @@ function renderMap(body: HTMLElement) {
   // The house: a little card to pick a room.
   const rooms = () => {
     wrap.querySelector('.tm-rooms')?.remove();
-    const card = el('div', 'tm-rooms', `<b>🏡 Home</b>${(['bedroom', 'livingroom', 'kitchen', 'bathroom', 'comfortroom'] as LocationId[]).map((id) => {
+    const card = el('div', 'tm-rooms', `<b>🏡 Home</b>${(['bedroom', 'livingroom', 'kitchen', 'bathroom'] as LocationId[]).map((id) => {
       const loc = LOCATIONS[id];
       return `<button data-room="${id}" class="${s.location === id ? 'here' : ''}">${iconImg(loc.icon, 40)}<span><b>${esc(loc.name)}</b><small>${s.location === id ? 'You are here ♡' : esc(loc.subtitle)}</small></span></button>`;
     }).join('')}<button class="tm-x" aria-label="Close">✕</button>`);

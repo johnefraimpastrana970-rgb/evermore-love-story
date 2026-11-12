@@ -5,7 +5,7 @@ import { audio } from '../audio/audio';
 import { PERSONALITIES, PET_GIFTS, PET_LINES, breed, type BreedDef } from './data';
 import { mood, roomOf, speciesOf, type Pet } from './logic';
 import type { ItemSpot } from '../home/world';
-import type { ItemUse } from '../home/data';
+import { ITEM_INTERACT, type ItemUse } from '../home/data';
 import { PET_FRAMES, PET_H, PET_W, buildPetSheet } from './draw';
 
 /*
@@ -175,6 +175,9 @@ export class PetWorld {
     }
     if (goal === 'toy') { this.play(a, 'happy'); this.bubble(a, pick(['🎾', '♪', '!'])); a.timer = rnd(3, 6); return; }
     if (goal === 'sniff') { this.bubble(a, pick(['?', '!', '👃', '♡'])); this.play(a, 'sit'); a.timer = rnd(3, 6); return; }
+    // A decoration: each has its own pet moment (napping by the fire, watching the record spin, cuddling the teddy…).
+    const deco = goal === 'deco' && spot ? ITEM_INTERACT[spot.item]?.pet : undefined;
+    if (deco) { this.play(a, deco.anim); this.bubble(a, pick(deco.bubbles)); a.timer = deco.anim === 'sleep' ? rnd(10, 18) : rnd(3, 6); return; }
     this.play(a, Math.random() < 0.4 ? 'sit' : 'idle');
     a.timer = rnd(2, 5);
   }
@@ -209,6 +212,7 @@ export class PetWorld {
           const beds = spots.filter((s) => s.use === 'bed');
           const perches = speciesOf(a.pet) === 'cat' ? spots.filter((s) => s.use === 'perch') : [];
           const toys = spots.filter((s) => s.use === 'toy');
+          const decos = spots.filter((s) => ITEM_INTERACT[s.item]?.pet && s.use !== 'bed' && s.use !== 'perch');
           const go = (s: ItemSpot, goal: ItemUse, dy = 0) => {
             this.leavePerch(a);
             a.target = Phaser.Math.Clamp(s.x, 60, loc.width - 60);
@@ -221,6 +225,7 @@ export class PetWorld {
           else if (beds.length && r < pers.sleepy * 0.55) go(pick(beds), 'bed', 2);
           else if (perches.length && r < 0.25 + (a.pet.personality === 'curious' || a.pet.personality === 'playful' ? 0.15 : 0)) go(pick(perches), 'perch', 3);
           else if (toys.length && r < 0.3 && (a.pet.personality === 'playful' || a.pet.personality === 'curious')) go(pick(toys), 'toy', 10);
+          else if (decos.length && r < 0.42) { const d = pick(decos); go({ ...d, x: d.x + (a.spr.x < d.x ? -1 : 1) * (d.w / 2 + 14) }, 'deco', 8); }
           else if (follows && r < pers.follow * 0.5 && Math.abs(pl.x - a.spr.x) > 90) {
             this.leavePerch(a);
             a.target = Phaser.Math.Clamp(pl.x + (a.spr.x < pl.x ? -70 : 70), 60, loc.width - 60);

@@ -62,7 +62,7 @@ function closedSign(cx: number, y: number) {
 export function townMapSvg(st: MapStatus): string {
   const lit = night(st.time) || st.time === 'sunset';
   const here = (id: string) => st.here === id;
-  const homeRoom = ['bedroom', 'livingroom', 'kitchen', 'bathroom', 'comfortroom'].includes(st.here);
+  const homeRoom = ['bedroom', 'livingroom', 'kitchen', 'bathroom'].includes(st.here);
   const yardHere = st.here === 'backyard';
   const sky = { morning: '#fff2d8', day: '#ffffff', sunset: '#ffd2b0', night: '#2b2d5a' }[st.time];
 

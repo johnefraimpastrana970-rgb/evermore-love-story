@@ -218,6 +218,15 @@ export function migrate(raw: unknown): GameState {
   // v10 -> v11: decorating.
   // v12 -> v13: home-memory entries are repaired with the rest of the home save.
   repairHome(s.home);
+  // v13: the comfort room (toilet) was removed. Anyone standing in it is back in the bathroom; quests that pointed
+  // there point at the bathroom instead.
+  if ((s.location as string) === 'comfortroom') { s.location = 'bathroom'; s.x = 230; }
+  delete (s.visited as Record<string, number>).comfortroom;
+  for (const q of Object.values(s.quests.generated ?? {})) {
+    for (const o of (q as { objectives?: { location?: string; label?: string }[] }).objectives ?? []) {
+      if (o.location === 'comfortroom') { o.location = 'bathroom'; if (o.label) o.label = o.label.replace('the comfort room', 'the bathroom'); }
+    }
+  }
   if (s.profile.playAs !== 'him') s.profile.playAs = 'her'; // older saves: she was always the player
   if (!Number.isFinite(s.level) || s.level < 1) s.level = 1;
   if (!Number.isFinite(s.xp) || s.xp < 0) s.xp = 0;

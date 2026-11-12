@@ -5,6 +5,21 @@
   transform: translate(-50%, 100%); transition: transform .35s cubic-bezier(.2, 1.1, .35, 1); }
 .hm-sheet::before { content: ""; position: absolute; top: 0; left: 22%; right: 22%; height: 4px; border-radius: 0 0 8px 8px; background: linear-gradient(90deg, #f8cb8e, #f08eaa, #bba7ec, #92cbbb); }
 .hm-layer.in .hm-sheet { transform: translate(-50%, 0); }
+/* Placing an item: the sheet slides away and a small floating bar stays at the top, so the whole room is visible. */
+.hm-layer.in.placing .hm-sheet { transform: translate(-50%, 104%); }
+.hm-float { position: absolute; left: 50%; top: calc(12px + var(--safe-t)); transform: translate(-50%, -140%); display: flex; align-items: center; gap: 8px;
+  padding: 6px 8px 6px 10px; border-radius: 999px; background: var(--surface); box-shadow: var(--bevel); pointer-events: auto; max-width: calc(100% - 24px);
+  transition: transform .3s cubic-bezier(.2, 1.1, .35, 1); }
+.hm-layer.placing .hm-float { transform: translate(-50%, 0); }
+.hm-float img { width: 40px; height: 36px; object-fit: contain; }
+.hm-float span { display: flex; flex-direction: column; min-width: 0; margin-right: 4px; }
+.hm-float b { font-size: 14px; color: #693b58; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.hm-float small { font-size: 11px; color: var(--lilac-deep); white-space: nowrap; }
+.hm-fpan { width: 34px; height: 34px; flex: none; border-radius: 50%; border: 0; background: var(--surface); box-shadow: var(--bevel); color: var(--rose-deep); font-size: 13px; cursor: pointer; }
+.hm-fpan:active { transform: translateY(2px); box-shadow: var(--bevel-pressed); }
+body.hm-placing .hud, body.hm-placing .hud-needs, body.hm-placing .hands-btn, body.hm-placing .hud-decor, body.hm-placing .touch-controls, body.hm-placing .prompt {
+  opacity: 0 !important; pointer-events: none !important; transition: opacity .2s; }
+@media (max-width: 560px) { .hm-float small { display: none; } }
 .hm-sheet header { display: flex; align-items: center; gap: 10px; padding: 4px 0 9px; border-bottom: 1px solid rgba(218, 180, 193, .38); }
 .hm-sheet h3 { margin: 0; font-size: 19px; flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: #693b58; letter-spacing: -.02em; }
 .hm-pan { display: flex; gap: 4px; }

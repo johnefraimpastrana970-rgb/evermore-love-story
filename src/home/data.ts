@@ -116,4 +116,66 @@ export const ITEMS: ItemDef[] = [
   { id: 'cushion-stack', name: 'Cottage cushions', emoji: '🧶', price: 50, use: 'bed', w: 100, h: 68 },
 ];
 export const MAX_ITEMS_PER_ROOM = 10;
+
+/** A little visual moment at an item: hearts, music notes, sparkles, bubbles, petals, the lamp's light, the fire's warmth. */
+export type ItemFx = 'hearts' | 'notes' | 'sparkle' | 'bubbles' | 'petals' | 'light' | 'warm';
+
+/**
+ * How everyone uses each placed item.
+ *  - her: walk up and press E (or tap it): a pose (read, water, sit on it), a face, a line, an effect; `pets` calls
+ *    the pets over to see
+ *  - him: when he wanders off on his own he may pick this item and do this there
+ *  - pet: what a pet does when it visits (beds, perches and toys also keep their own behaviour)
+ * Faces are chibi face names (see art/chibi/spec.ts).
+ */
+export interface ItemInteraction {
+  label: string;
+  pose?: 'read' | 'water' | 'sit';
+  /** How high the seat is above the floor, in item px (for `pose: 'sit'`). */
+  seat?: number;
+  face: string;
+  lines: string[];
+  fx?: ItemFx;
+  pets?: boolean;
+  his: { act?: 'read' | 'phone'; face?: string; lines: string[]; fx?: ItemFx };
+  pet?: { anim: 'sit' | 'happy' | 'sleep'; bubbles: string[] };
+}
+export const ITEM_INTERACT: Record<string, ItemInteraction> = {
+  'cat-tree': { label: 'Play with the cat tree', face: 'happy', fx: 'sparkle', pets: true, lines: ['Who wants to climb? ♡', 'Up you go!'],
+    his: { lines: ['Tiny jungle gym.', 'I’d climb it if I fit.'], fx: 'sparkle' } },
+  'pet-bed': { label: 'Fluff the pet bed', face: 'smiling', fx: 'hearts', pets: true, lines: ['So fluffy! Nap time, anyone?'],
+    his: { lines: ['Comfy… maybe too comfy.'] } },
+  'pet-bed-heart': { label: 'Fluff the heart bed', face: 'smiling', fx: 'hearts', pets: true, lines: ['A heart-shaped nap ♡'],
+    his: { lines: ['Even the pet bed is cuter than me.'] } },
+  'toy-box': { label: 'Shake the toy basket', face: 'laughing', fx: 'sparkle', pets: true, lines: ['Toy time!', 'Who wants the squeaky one?'],
+    his: { lines: ['*squeak* …that wasn’t me.'], fx: 'sparkle' }, pet: { anim: 'happy', bubbles: ['🎾', '!'] } },
+  monstera: { label: 'Water the big plant', pose: 'water', face: 'happy', fx: 'sparkle', lines: ['Grow big and leafy ♡', 'There you go, buddy.'],
+    his: { lines: ['Looking healthy!'], fx: 'sparkle' }, pet: { anim: 'sit', bubbles: ['🌿', '?'] } },
+  'floor-lamp': { label: 'Switch the lamp', face: 'smiling', fx: 'light', lines: ['Cozy lighting ♡', 'Mood: mushroom.'],
+    his: { lines: ['Better.'], fx: 'light' }, pet: { anim: 'sit', bubbles: ['✨'] } },
+  beanbag: { label: 'Flop on the beanbag', pose: 'sit', seat: 38, face: 'happy', lines: ['Ahh… never getting up.', 'So squishy ♡'],
+    his: { act: 'phone', lines: ['Five more minutes.'] } },
+  bear: { label: 'Hug the giant teddy', face: 'blushing', fx: 'hearts', lines: ['Second-best hugger in the house ♡'],
+    his: { lines: ['Hey. I’m the best hugger.'], fx: 'hearts' }, pet: { anim: 'sleep', bubbles: ['♡'] } },
+  fishbowl: { label: 'Feed the fish', face: 'happy', fx: 'bubbles', lines: ['Breakfast, little guys!', 'Blub blub ♡'],
+    his: { lines: ['Hi, fishies.'], fx: 'bubbles' } },
+  'heart-pillow': { label: 'Sit on the cushion', pose: 'sit', seat: 16, face: 'shy', lines: ['Comfy ♡'],
+    his: { act: 'phone', lines: ['Good spot.'] } },
+  bookshelf: { label: 'Read a storybook', pose: 'read', face: 'reading', lines: ['Just one more chapter…', 'This part always gets me.'],
+    his: { act: 'read', lines: ['Found a good one.'] }, pet: { anim: 'sit', bubbles: ['📖', '?'] } },
+  'coffee-table': { label: 'Have a cup of tea', face: 'smiling', fx: 'sparkle', lines: ['Mmm, chamomile ♡', 'Tea time!'],
+    his: { lines: ['Tea for two?'] }, pet: { anim: 'sit', bubbles: ['🍪?'] } },
+  'side-table': { label: 'Tidy the little table', face: 'smiling', fx: 'sparkle', lines: ['There, all neat.'],
+    his: { act: 'phone', lines: ['Charging my phone here.'] }, pet: { anim: 'sit', bubbles: ['?'] } },
+  vanity: { label: 'Check the mirror', face: 'shy', fx: 'sparkle', lines: ['Cute today? …Cute today ♡', 'Hair: perfect.'],
+    his: { lines: ['Looking good, if I say so myself.'] }, pet: { anim: 'happy', bubbles: ['?!', '🪞'] } },
+  'flower-vase': { label: 'Smell the daisies', face: 'happy', fx: 'petals', lines: ['They smell like sunshine.'],
+    his: { lines: ['Pretty. Like you.'], fx: 'petals' }, pet: { anim: 'sit', bubbles: ['🌸', 'achoo!'] } },
+  fireplace: { label: 'Warm up by the fire', face: 'smiling', fx: 'warm', lines: ['So warm and cozy…', 'Perfect.'],
+    his: { lines: ['Best spot in the house.'], fx: 'warm' }, pet: { anim: 'sleep', bubbles: ['♨', 'zz'] } },
+  'record-player': { label: 'Play a record', face: 'happy', fx: 'notes', lines: ['♪ This one is our song ♪', 'Dance with me?'],
+    his: { lines: ['I love this one.'], fx: 'notes' }, pet: { anim: 'happy', bubbles: ['♪'] } },
+  'cushion-stack': { label: 'Sit on the cushions', pose: 'sit', seat: 36, face: 'happy', lines: ['Cozy corner ♡'],
+    his: { act: 'phone', lines: ['Comfy.'] } },
+};
 export const itemDef = (id: string) => ITEMS.find((i) => i.id === id);

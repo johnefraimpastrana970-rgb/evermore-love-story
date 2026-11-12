@@ -116,7 +116,7 @@ type R = { int: (a: number, b: number) => number; pick: <T>(a: readonly T[]) => 
 
 const LOC_NAMES: Record<LocationId, string> = {
   bedroom: 'the bedroom', livingroom: 'the living room', kitchen: 'the kitchen', bathroom: 'the bathroom',
-  comfortroom: 'the comfort room', backyard: 'the backyard', school: 'school',
+  backyard: 'the backyard', school: 'school',
 };
 const KIND_NAMES: Record<CollectibleKind, string> = {
   heart: 'heart charms', petal: 'petals', star: 'star shards', note: 'folded notes', sparkle: 'sparkles',
@@ -130,7 +130,7 @@ const MG_NAMES: Record<MinigameId, string> = {
 const DAILY_TITLES = ['Sweet Errand', 'Little Adventure', 'Cozy Task', 'Heart Hunt', 'Daily Spark', 'Tiny Mission'];
 
 export function dailyTemplates(r: R): ObjectiveDef[] {
-  const loc = r.pick(['bedroom', 'livingroom', 'kitchen', 'bathroom', 'comfortroom', 'backyard', 'school'] as LocationId[]);
+  const loc = r.pick(['bedroom', 'livingroom', 'kitchen', 'bathroom', 'backyard', 'school'] as LocationId[]);
   const kind = r.pick(['heart', 'petal', 'star', 'note'] as CollectibleKind[]);
   const mg = r.pick(['memory', 'cooking', 'grill-flip', 'skewer-memory', 'scramble', 'slider'] as MinigameId[]);
   return [
