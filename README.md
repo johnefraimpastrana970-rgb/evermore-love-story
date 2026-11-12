@@ -13,6 +13,10 @@ npm test           # logic tests (progression, quests, occasions, saves, content
 npm run build      # production build into dist/
 ```
 
+## Deploy to GitHub Pages
+
+The GitHub Actions workflow in `.github/workflows/deploy-pages.yml` builds and deploys the game on pushes to `main` or `master`. In the repository's **Settings → Pages**, set the source to **GitHub Actions**. You can also start a deployment from the **Actions** tab.
+
 ## Controls
 | Action | Keyboard | Mouse | Touch |
 |---|---|---|---|
