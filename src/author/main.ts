@@ -237,10 +237,12 @@ function allIds(): string[] {
   return ids;
 }
 function updateCounts() {
-  const written = PERSONAL_TEMPLATES.filter((t) => { const e = authored(t.id); return e && !problems(e, t.kind).length; }).length;
+  // Only real templates count (the achievement letters are already written; rewriting one is optional).
+  const todo = PERSONAL_TEMPLATES.filter((t) => t.placeholder);
+  const written = todo.filter((t) => { const e = authored(t.id); return e && !problems(e, t.kind).length; }).length;
   const extra = data.entries.filter((e) => !template(e.id)).length;
   const el = document.querySelector('.au-count');
-  if (el) el.textContent = `${written} of ${PERSONAL_TEMPLATES.length} templates written${extra ? ` · ${extra} extra` : ''}`;
+  if (el) el.textContent = `${written} of ${todo.length} templates written${extra ? ` · ${extra} extra` : ''}`;
 }
 
 function renderEntries() {

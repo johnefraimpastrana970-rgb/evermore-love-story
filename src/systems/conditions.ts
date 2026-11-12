@@ -30,6 +30,7 @@ export function checkCondition(c: Condition | undefined, ctx: CondCtx): boolean 
   if (c.questActive && !s.quests.active[c.questActive]) return false;
   if (c.minAffection !== undefined && s.affection < c.minAffection) return false;
   if (c.secret && !s.secrets[c.secret]) return false;
+  if (c.achievement && !s.achievements[c.achievement]) return false;
   if (c.chance !== undefined && Math.random() > c.chance) return false;
   return true;
 }

@@ -45,13 +45,17 @@ describe('authored content (Author tool)', () => {
     const welcome = merged.find((e) => e.id === 'letter-welcome')!;
     expect(welcome.title).toBe('For you');
     expect(welcome.placeholder).toBe(false);
-    expect(merged.find((e) => e.id === 'letter-level5')!.placeholder).toBe(true); // still the template
+    // An unfinished one keeps the built-in letter (letters are written, not templates).
+    expect(merged.find((e) => e.id === 'letter-level5')!.title).toBe(PERSONAL_TEMPLATES.find((e) => e.id === 'letter-level5')!.title);
+    expect(merged.find((e) => e.id === 'letter-level5')!.placeholder).toBeFalsy();
     expect(merged.find((e) => e.id === 'my-joke-1')).toBeTruthy();
     expect(merged).toHaveLength(PERSONAL_TEMPLATES.length + 1);
 
     const hidden = mergeEntries(PERSONAL_TEMPLATES, { ...a, hideTemplates: true });
     expect(hidden.every((e) => !e.placeholder)).toBe(true);
-    expect(hidden.map((e) => e.id).sort()).toEqual(['letter-welcome', 'my-joke-1']);
+    // Hiding templates keeps everything finished: the written entries and the built-in letters.
+    expect(hidden.map((e) => e.id).sort()).toEqual(
+      [...new Set(['letter-welcome', 'my-joke-1', ...PERSONAL_TEMPLATES.filter((e) => !e.placeholder).map((e) => e.id)])].sort());
   });
 
   it('garden bloom scenes: only for real special plants, parsed by speaker', () => {

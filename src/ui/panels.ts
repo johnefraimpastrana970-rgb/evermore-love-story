@@ -18,6 +18,7 @@ import { portraitURL } from '../art/characters';
 import { lookFor } from '../art/textures';
 import { ITEMS } from '../content/items';
 import { PERSONAL } from '../content/personal';
+import { fillLetter, letterFacts } from '../content/letters';
 import { ACHIEVEMENTS, SECRET_COUNT } from '../content/achievements';
 import { openPizzaShop, pizzaUnlocked } from '../pizza/shop';
 import { openMarket } from '../pizza/market';
@@ -350,6 +351,10 @@ export function describeCondition(c?: Condition): string {
   const parts: string[] = [];
   if (c.minLevel) parts.push(`Reach level ${c.minLevel}`);
   if (c.secret) parts.push('Find a hidden secret');
+  if (c.achievement) {
+    const a = ACHIEVEMENTS.find((x) => x.id === c.achievement);
+    parts.push(a && !a.hidden ? `Earn “${a.name}”: ${a.description}` : 'Arrives with a secret achievement…');
+  }
   if (c.occasion) parts.push('Appears on a special day');
   if (c.time) parts.push(`Visit at ${c.time.join(' / ')}`);
   if (c.questDone) parts.push('Finish a quest');
@@ -433,7 +438,7 @@ export function openReader(e: PersonalEntry): Promise<void> {
       <h2>${richText(store.fmtLiteral(e.title))}</h2>
       ${e.date ? `<div class="paper-date">${richText(e.date)}</div>` : ''}
       <div class="paper-img"></div>
-      <div class="paper-body">${richText(store.fmtLiteral(e.body ?? ''))}</div>
+      <div class="paper-body">${richText(store.fmtLiteral(e.kind === 'letter' ? fillLetter(e.body ?? '', store.state.letterFacts?.[e.id] ?? letterFacts(store.state)) : e.body ?? ''))}</div>
       ${e.placeholder ? '<p class="tpl-note">This is a template. Fill it in <code>src/content/personal.ts</code> (see CONTENT_GUIDE.md).</p>' : ''}
       ${isChallenge ? `<button class="btn btn-rose ch-done" ${done ? 'disabled' : ''}>${done ? 'Completed ✓' : `We did it! (+${e.rewardXp ?? 100} XP)`}</button>` : ''}
       <div class="paper-sign">♥</div>

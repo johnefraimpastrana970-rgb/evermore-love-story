@@ -1,6 +1,6 @@
 import type { LocationId, TimeOfDay } from '../content/types';
 import {
-  Ctx, hex, shade, rr, fillRR, vgrad, glow, ellipse, floorShadow, heartPath, starPath, bevelRR, box,
+  Ctx, hex, shade, rr, fillRR, vgrad, hgrad, glow, ellipse, floorShadow, heartPath, starPath, bevelRR, box,
   drawSky, drawWall, drawFloor, drawWindow, drawPlant, drawBooks, drawFrame, paintLandscape,
   drawDoor, drawRug, drawStringLights, type WallStyle,
 } from './paint';
@@ -585,12 +585,19 @@ const backyard: RoomPainter = {
     for (let x = 200; x < w; x += 110) ellipse(ctx, x, 640 + Math.sin(x) * 8, 34, 10, night ? '#5a6070' : '#d8d0c4');
     // fence
     const fence = night ? 0xb8bcd0 : 0xfffaf4;
-    ctx.fillStyle = hex(shade(fence, -0.08));
-    ctx.fillRect(200, 410, w - 200, 10); ctx.fillRect(200, 460, w - 200, 10);
+    // rails (lit on top, a shadow line under each), then pickets with a shaded side and a shadow on the grass
+    for (const ry of [410, 460]) {
+      ctx.fillStyle = hex(shade(fence, -0.08)); ctx.fillRect(200, ry, w - 200, 10);
+      ctx.fillStyle = 'rgba(255,255,255,0.5)'; ctx.fillRect(200, ry, w - 200, 2);
+      ctx.fillStyle = 'rgba(40,40,60,0.18)'; ctx.fillRect(200, ry + 10, w - 200, 3);
+    }
+    ctx.fillStyle = 'rgba(30,50,30,0.18)'; ctx.fillRect(200, 500, w - 200, 6);
     for (let x = 210; x < w; x += 34) {
       if (x >= 2110 && x <= 2170) continue;
       ctx.beginPath(); ctx.moveTo(x, 500); ctx.lineTo(x, 392); ctx.lineTo(x + 12, 380); ctx.lineTo(x + 24, 392); ctx.lineTo(x + 24, 500); ctx.closePath();
       ctx.fillStyle = vgrad(ctx, 380, 500, [[0, fence], [1, shade(fence, -0.12)]]); ctx.fill();
+      ctx.fillStyle = hex(shade(fence, -0.2), 0.6); ctx.fillRect(x + 19, 392, 5, 108);
+      ctx.fillStyle = 'rgba(255,255,255,0.55)'; ctx.fillRect(x + 1, 392, 2, 108);
     }
     // loose board
     ctx.save(); ctx.translate(2130, 500); ctx.rotate(0.14);
@@ -610,8 +617,11 @@ const backyard: RoomPainter = {
     // fairy lights
     drawStringLights(ctx, 210, w - 60, 130, 26, evening(time), 'yardlights');
 
-    // flower bed
-    fillRR(ctx, 230, 470, 300, 34, 10, night ? '#4a3a34' : '#8a5a3e');
+    // flower bed: a raised wooden planter with soil on top
+    floorShadow(ctx, 380, 505, 320, 0.3);
+    box(ctx, 230, 474, 300, 30, 0, night ? 0x5a4436 : 0xa8724c, { shadow: false, r: 6 });
+    ellipse(ctx, 380, 474, 146, 7, night ? '#3a2a24' : '#6a4430');
+    for (let x = 250; x < 520; x += 50) { ctx.fillStyle = 'rgba(60,30,20,0.3)'; ctx.fillRect(x, 480, 2, 22); }
     const fr = rng('flowers');
     for (let i = 0; i < 26; i++) {
       const fx = 245 + fr.next() * 270, fy = 440 + fr.next() * 40;
@@ -628,6 +638,15 @@ const backyard: RoomPainter = {
     floorShadow(ctx, 640, 505, 420, 0.35);
     ctx.fillStyle = vgrad(ctx, 200, 505, [[0, 0x8a5a48], [1, 0x6a4232]]);
     ctx.beginPath(); ctx.moveTo(585, 505); ctx.quadraticCurveTo(600, 350, 590, 200); ctx.lineTo(650, 200); ctx.quadraticCurveTo(640, 350, 660, 505); ctx.closePath(); ctx.fill();
+    { // a round trunk: lit on the left, in shade on the right, with bark lines
+      ctx.save(); ctx.clip();
+      const tg = ctx.createLinearGradient(585, 0, 660, 0);
+      tg.addColorStop(0, 'rgba(255,220,190,0.22)'); tg.addColorStop(0.35, 'rgba(255,220,190,0)'); tg.addColorStop(0.7, 'rgba(30,10,10,0.1)'); tg.addColorStop(1, 'rgba(30,10,10,0.38)');
+      ctx.fillStyle = tg; ctx.fillRect(580, 200, 90, 310);
+      ctx.strokeStyle = 'rgba(50,25,20,0.35)'; ctx.lineWidth = 2;
+      for (const bx of [604, 622, 640]) { ctx.beginPath(); ctx.moveTo(bx, 500); ctx.quadraticCurveTo(bx + 6, 380, bx - 2, 220); ctx.stroke(); }
+      ctx.restore();
+    }
     ctx.lineWidth = 16; ctx.strokeStyle = '#7a4c3a'; ctx.lineCap = 'round';
     ctx.beginPath(); ctx.moveTo(630, 240); ctx.quadraticCurveTo(720, 215, 800, 225); ctx.stroke();
     ctx.lineCap = 'butt';
@@ -652,37 +671,58 @@ const backyard: RoomPainter = {
     ctx.beginPath(); ctx.moveTo(1020, 440); ctx.quadraticCurveTo(1085, 470, 1150, 440); ctx.closePath();
     ctx.fillStyle = '#2a2430'; ctx.fill();
     ctx.beginPath(); ctx.ellipse(1085, 440, 65, 50, 0, Math.PI, 0); ctx.fillStyle = vgrad(ctx, 390, 440, [[0, 0xd8344f], [1, 0xa82a40]]); ctx.fill();
+    // the domed lid catches the light (a highlight up top-left), shaded toward the right
+    ellipse(ctx, 1062, 408, 22, 8, 'rgba(255,255,255,0.35)');
+    ctx.save(); ctx.beginPath(); ctx.ellipse(1085, 440, 65, 50, 0, Math.PI, 0); ctx.clip();
+    const lg = ctx.createLinearGradient(1020, 0, 1150, 0); lg.addColorStop(0.55, 'rgba(60,0,20,0)'); lg.addColorStop(1, 'rgba(60,0,20,0.35)');
+    ctx.fillStyle = lg; ctx.fillRect(1018, 388, 134, 54); ctx.restore();
     fillRR(ctx, 1072, 382, 26, 8, 4, '#3a3440');
     if (evening(time)) glow(ctx, 1085, 440, 70, 0xff8a40, 0.5);
     ctx.strokeStyle = 'rgba(230,230,240,0.45)'; ctx.lineWidth = 4;
     for (let i = 0; i < 2; i++) { ctx.beginPath(); ctx.moveTo(1150 + i * 8, 445); ctx.bezierCurveTo(1170, 420, 1150, 390, 1170, 350); ctx.stroke(); }
 
     // Picnic table
-    floorShadow(ctx, 1380, 505, 300, 0.3);
-    ctx.fillStyle = '#9a6a48'; ctx.fillRect(1260, 455, 240, 10);
-    ctx.save(); ctx.strokeStyle = '#8a5a3a'; ctx.lineWidth = 8;
-    ctx.beginPath(); ctx.moveTo(1290, 410); ctx.lineTo(1270, 500); ctx.moveTo(1470, 410); ctx.lineTo(1490, 500); ctx.stroke(); ctx.restore();
-    fillRR(ctx, 1250, 396, 260, 16, 3, '#b07a52');
+    floorShadow(ctx, 1380, 505, 320, 0.34);
+    ctx.save(); ctx.strokeStyle = '#7a4c30'; ctx.lineWidth = 8;
+    ctx.beginPath(); ctx.moveTo(1290, 410); ctx.lineTo(1270, 500); ctx.moveTo(1470, 410); ctx.lineTo(1490, 500); ctx.stroke();
+    ctx.strokeStyle = 'rgba(255,220,180,0.3)'; ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.moveTo(1287, 412); ctx.lineTo(1267, 500); ctx.moveTo(1467, 412); ctx.lineTo(1487, 500); ctx.stroke(); ctx.restore();
+    box(ctx, 1260, 455, 240, 10, 6, 0x9a6a48, { shadow: false, r: 2 }); // bench
+    box(ctx, 1250, 398, 260, 12, 8, 0xb07a52, { shadow: false, r: 3 }); // table top
+    // gingham cloth draped over the front edge, with a soft shadow under its hem
+    ctx.fillStyle = 'rgba(60,30,30,0.2)'; ctx.fillRect(1258, 424, 246, 5);
     for (let i = 0; i < 13; i++) { ctx.fillStyle = i % 2 ? '#ffffff' : '#ff7f9a'; ctx.fillRect(1256 + i * 19, 398, 19, 26); }
-    // basket
-    fillRR(ctx, 1340, 360, 70, 38, 8, '#d8a86a');
+    ctx.fillStyle = 'rgba(255,255,255,0.35)'; ctx.fillRect(1256, 398, 247, 3);
+    // basket (with its shadow on the cloth) and an apple
+    ellipse(ctx, 1378, 398, 40, 4, 'rgba(70,30,30,0.28)');
+    fillRR(ctx, 1340, 360, 70, 38, 8, vgrad(ctx, 360, 398, [[0, 0xe8bc80], [1, 0xc08850]]));
+    ctx.strokeStyle = 'rgba(140,90,50,0.6)'; ctx.lineWidth = 1.5;
+    for (let y = 368; y < 396; y += 7) { ctx.beginPath(); ctx.moveTo(1344, y); ctx.lineTo(1406, y); ctx.stroke(); }
     ctx.strokeStyle = '#b08050'; ctx.lineWidth = 4; ctx.beginPath(); ctx.arc(1375, 362, 28, Math.PI, 0); ctx.stroke();
-    ellipse(ctx, 1450, 386, 12, 12, '#e04a5a');
+    ellipse(ctx, 1452, 397, 13, 3, 'rgba(70,30,30,0.28)');
+    ellipse(ctx, 1450, 386, 12, 12, '#e04a5a'); ellipse(ctx, 1446, 381, 4, 3, 'rgba(255,255,255,0.55)');
 
     // Blanket & telescope
+    // (a quilted blanket lying on the grass: its front edge has thickness, and it shades the grass)
+    floorShadow(ctx, 1750, 508, 240, 0.25);
     ctx.beginPath(); ctx.moveTo(1640, 505); ctx.lineTo(1670, 465); ctx.lineTo(1860, 465); ctx.lineTo(1850, 505); ctx.closePath();
-    ctx.fillStyle = '#7a8ad8'; ctx.fill();
+    ctx.fillStyle = vgrad(ctx, 465, 505, [[0, 0x8a9ae4], [1, 0x7080cc]]); ctx.fill();
+    ctx.fillStyle = '#5a68b0'; ctx.beginPath(); ctx.moveTo(1640, 505); ctx.lineTo(1850, 505); ctx.lineTo(1849, 510); ctx.lineTo(1641, 510); ctx.closePath(); ctx.fill();
     ctx.strokeStyle = 'rgba(255,255,255,0.5)'; ctx.lineWidth = 2;
     for (let i = 1; i < 6; i++) { ctx.beginPath(); ctx.moveTo(1640 + i * 36, 505); ctx.lineTo(1670 + i * 32, 465); ctx.stroke(); }
-    fillRR(ctx, 1680, 450, 46, 20, 9, '#ffd6e0'); fillRR(ctx, 1736, 452, 46, 18, 9, '#fff0c8');
+    ellipse(ctx, 1704, 469, 24, 3, 'rgba(40,40,90,0.3)'); ellipse(ctx, 1760, 470, 24, 3, 'rgba(40,40,90,0.3)');
+    bevelRR(ctx, 1680, 450, 46, 20, 9, 0xffd6e0); bevelRR(ctx, 1736, 452, 46, 18, 9, 0xfff0c8);
     ctx.strokeStyle = '#6a6070'; ctx.lineWidth = 4;
     ctx.beginPath(); ctx.moveTo(1860, 505); ctx.lineTo(1878, 440); ctx.lineTo(1896, 505); ctx.moveTo(1878, 440); ctx.lineTo(1878, 505); ctx.stroke();
     ctx.save(); ctx.translate(1878, 432); ctx.rotate(-0.6); fillRR(ctx, -36, -8, 72, 16, 6, '#e8c070'); ctx.restore();
     if (night) for (let i = 0; i < 4; i++) { ctx.fillStyle = '#fff6c0'; starPath(ctx, 1700 + i * 40, 430 - i * 6, 4); ctx.fill(); }
 
     // Mailbox
-    ctx.fillStyle = '#8a5a3a'; ctx.fillRect(1995, 370, 12, 132);
-    fillRR(ctx, 1962, 332, 78, 44, 20, vgrad(ctx, 332, 376, [[0, 0xff8fa8], [1, 0xd8546e]]));
+    floorShadow(ctx, 2001, 504, 70, 0.32);
+    ctx.fillStyle = vgrad(ctx, 370, 502, [[0, 0x9a6a48], [1, 0x7a4c30]]); ctx.fillRect(1995, 370, 12, 132);
+    ctx.fillStyle = 'rgba(30,10,10,0.3)'; ctx.fillRect(2003, 376, 4, 126); ctx.fillRect(1995, 376, 12, 5);
+    bevelRR(ctx, 1962, 332, 78, 44, 20, 0xf07890, { drop: 6 });
+    ellipse(ctx, 1984, 340, 14, 4, 'rgba(255,255,255,0.45)');
     ctx.fillStyle = '#d8344f'; ctx.fillRect(2032, 316, 5, 30); ctx.fillRect(2032, 316, 18, 10);
     ctx.fillStyle = '#ffffff'; heartPath(ctx, 1990, 344, 16); ctx.fill();
   },
@@ -742,11 +782,14 @@ const school: RoomPainter = {
       const lx = 120 + i * 70;
       const her = i === 3;
       const c = her ? 0xf4a6b8 : 0x7f9cc8;
-      fillRR(ctx, lx, 190, 66, 310, 3, vgrad(ctx, 190, 500, [[0, shade(c, 0.1)], [1, shade(c, -0.12)]]));
-      ctx.fillStyle = hex(shade(c, -0.25));
-      for (let v = 0; v < 4; v++) ctx.fillRect(lx + 14, 206 + v * 8, 38, 3);
-      fillRR(ctx, lx + 48, 330, 8, 26, 3, '#d0d0d8');
-      ctx.fillStyle = 'rgba(0,0,0,0.12)'; ctx.fillRect(lx + 64, 190, 2, 310);
+      bevelRR(ctx, lx, 190, 66, 310, 3, c);
+      for (let v = 0; v < 4; v++) { // vents: dark slots with a lit lip below each
+        ctx.fillStyle = hex(shade(c, -0.4)); ctx.fillRect(lx + 14, 206 + v * 8, 38, 3);
+        ctx.fillStyle = 'rgba(255,255,255,0.4)'; ctx.fillRect(lx + 14, 209 + v * 8, 38, 1);
+      }
+      fillRR(ctx, lx + 50, 333, 8, 26, 3, 'rgba(20,30,50,0.25)');
+      fillRR(ctx, lx + 48, 330, 8, 26, 3, vgrad(ctx, 330, 356, [[0, 0xf0f0f6], [1, 0xa8a8b4]]));
+      ctx.fillStyle = 'rgba(10,20,40,0.22)'; ctx.fillRect(lx + 64, 190, 3, 310);
       if (her) {
         ctx.fillStyle = '#ffffff'; heartPath(ctx, lx + 33, 260, 20); ctx.fill();
         ctx.fillStyle = '#ffd36a'; starPath(ctx, lx + 18, 300, 7); ctx.fill();
@@ -754,8 +797,9 @@ const school: RoomPainter = {
       }
     }
     // Bulletin board
-    fillRR(ctx, 560, 170, 220, 170, 4, '#a87650');
+    bevelRR(ctx, 560, 170, 220, 170, 4, 0xa87650, { drop: 12 });
     fillRR(ctx, 568, 178, 204, 154, 3, '#d9b080');
+    ctx.fillStyle = 'rgba(80,40,20,0.22)'; ctx.fillRect(568, 178, 204, 5); ctx.fillRect(568, 178, 4, 154);
     const pr = rng('board');
     for (let i = 0; i < 7; i++) {
       const px = 580 + pr.next() * 150, py = 188 + pr.next() * 100;
@@ -769,18 +813,26 @@ const school: RoomPainter = {
     ctx.fillStyle = '#5a3a2a'; ctx.font = 'bold 15px Fredoka, sans-serif'; ctx.textAlign = 'center';
     ctx.fillText('CHALLENGES', 670, 164);
     // Pillar between hallway and classroom
-    fillRR(ctx, 915, 0, 50, 500, 0, vgrad(ctx, 0, 500, [[0, 0xf0ece4], [1, 0xd8d0c4]]));
+    // (a square column standing out from the wall: a lit face, a shaded side, shadows either side)
+    ctx.fillStyle = 'rgba(40,30,40,0.14)'; ctx.fillRect(965, 0, 18, 500);
+    fillRR(ctx, 915, 0, 50, 500, 0, hgrad(ctx, 915, 965, [[0, 0xfaf6ee], [0.6, 0xece6dc], [1, 0xd0c8bc]]));
+    ctx.fillStyle = 'rgba(255,255,255,0.6)'; ctx.fillRect(916, 0, 2, 500);
 
-    // Clock
+    // Clock (standing off the wall)
+    ellipse(ctx, 1053, 215, 35, 35, 'rgba(40,30,40,0.2)');
     ellipse(ctx, 1050, 210, 34, 34, '#5a4a4a'); ellipse(ctx, 1050, 210, 29, 29, '#ffffff');
+    ellipse(ctx, 1050, 212, 29, 29, 'rgba(90,80,100,0.1)'); ellipse(ctx, 1046, 204, 22, 22, '#ffffff');
+    ellipse(ctx, 1040, 196, 9, 4, 'rgba(255,255,255,0.9)');
     ctx.strokeStyle = '#3a2a2a'; ctx.lineWidth = 3;
     ctx.beginPath(); ctx.moveTo(1050, 210); ctx.lineTo(1050, 190); ctx.moveTo(1050, 210); ctx.lineTo(1064, 216); ctx.stroke();
 
     // Chalkboard
-    fillRR(ctx, 1140, 140, 520, 240, 6, '#9a6a48');
+    bevelRR(ctx, 1140, 140, 520, 240, 6, 0x9a6a48, { drop: 14 });
     fillRR(ctx, 1152, 152, 496, 216, 4, vgrad(ctx, 152, 368, [[0, 0x3a6a54], [1, 0x2c5442]]));
+    ctx.fillStyle = 'rgba(0,0,0,0.25)'; ctx.fillRect(1152, 152, 496, 6); ctx.fillRect(1152, 152, 5, 216);
     ctx.fillStyle = 'rgba(255,255,255,0.05)'; ctx.fillRect(1160, 170, 300, 60);
-    fillRR(ctx, 1150, 376, 500, 12, 3, '#a87650');
+    ctx.fillStyle = 'rgba(40,20,10,0.25)'; ctx.fillRect(1154, 388, 492, 6);
+    box(ctx, 1150, 380, 500, 8, 6, 0xa87650, { shadow: false, r: 2 });
     ctx.fillStyle = '#ffffff'; ctx.fillRect(1210, 370, 18, 6); ctx.fillStyle = '#ffb3c8'; ctx.fillRect(1240, 370, 14, 6);
     ctx.fillStyle = 'rgba(255,255,255,0.88)';
     ctx.font = '38px Caveat, cursive'; ctx.textAlign = 'left';
@@ -796,9 +848,14 @@ const school: RoomPainter = {
 
     // Teacher desk
     floorShadow(ctx, 1820, 505, 260, 0.28);
-    fillRR(ctx, 1720, 392, 200, 108, 4, vgrad(ctx, 392, 500, [[0, 0xb8865e], [1, 0x946644]]));
-    fillRR(ctx, 1712, 382, 216, 14, 3, '#c8946a');
-    ctx.strokeStyle = 'rgba(60,30,20,0.3)'; ctx.lineWidth = 2; ctx.strokeRect(1735, 410, 80, 75);
+    box(ctx, 1720, 396, 200, 104, 0, 0xb08058, { shadow: false });
+    ctx.fillStyle = 'rgba(40,20,10,0.25)'; ctx.fillRect(1722, 396, 196, 7);
+    box(ctx, 1712, 386, 216, 10, 8, 0xc8946a, { shadow: false, r: 3 });
+    ctx.lineWidth = 2;
+    ctx.strokeStyle = 'rgba(255,230,200,0.45)'; ctx.beginPath(); ctx.moveTo(1735, 485); ctx.lineTo(1735, 410); ctx.lineTo(1815, 410); ctx.stroke();
+    ctx.strokeStyle = 'rgba(60,30,20,0.45)'; ctx.beginPath(); ctx.moveTo(1815, 410); ctx.lineTo(1815, 485); ctx.lineTo(1735, 485); ctx.stroke();
+    ellipse(ctx, 1775, 448, 7, 3, '#e8c070');
+    for (const [ox, oy, rw] of [[1756, 381, 14], [1820, 382, 32], [1891, 373, 20]] as [number, number, number][]) ellipse(ctx, ox, oy, rw, 3, 'rgba(60,30,20,0.25)'); // things on the desk sit on it
     ellipse(ctx, 1755, 368, 13, 13, '#e0404f'); ctx.fillStyle = '#5a3a2a'; ctx.fillRect(1754, 350, 3, 8);
     ellipse(ctx, 1762, 352, 6, 3, '#5fae6a');
     ctx.fillStyle = '#fffdf8'; ctx.fillRect(1790, 368, 60, 14); ctx.fillStyle = '#f0e8dc'; ctx.fillRect(1794, 362, 56, 8);
@@ -807,8 +864,9 @@ const school: RoomPainter = {
 
     // Student desk (secret)
     floorShadow(ctx, 1965, 505, 120, 0.25);
-    fillRR(ctx, 1925, 440, 80, 10, 3, '#d4a47c');
-    ctx.fillStyle = '#7a7a88'; ctx.fillRect(1935, 450, 5, 50); ctx.fillRect(1990, 450, 5, 50);
+    for (const lx of [1935, 1990]) { ctx.fillStyle = vgrad(ctx, 450, 500, [[0, 0x9a9aa8], [1, 0x6a6a78]]); ctx.fillRect(lx, 450, 5, 50); }
+    ctx.fillStyle = 'rgba(40,20,20,0.2)'; ctx.fillRect(1928, 450, 74, 4);
+    box(ctx, 1925, 442, 80, 8, 6, 0xd4a47c, { shadow: false, r: 2 });
     ctx.strokeStyle = 'rgba(60,30,20,0.6)'; ctx.lineWidth = 1.5; heartPath(ctx, 1992, 470, 10); ctx.stroke();
 
     // Windows

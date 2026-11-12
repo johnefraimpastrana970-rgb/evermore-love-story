@@ -61,7 +61,7 @@ function cleanCondition(v: unknown): Condition | undefined {
     const t = v.time.filter((x): x is TimeOfDay => ['morning', 'day', 'sunset', 'night'].includes(x as string));
     if (t.length) c.time = t;
   }
-  for (const k of ['occasion', 'secret', 'flag', 'questDone'] as const) if (str(v[k], 80)) c[k] = str(v[k], 80);
+  for (const k of ['occasion', 'secret', 'flag', 'questDone', 'achievement'] as const) if (str(v[k], 80)) c[k] = str(v[k], 80);
   return Object.keys(c).length ? c : undefined;
 }
 

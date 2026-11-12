@@ -9,6 +9,7 @@ import { activeOccasions } from './occasions';
 import { OCCASIONS } from '../content/occasions';
 import { ACHIEVEMENTS } from '../content/achievements';
 import { PERSONAL } from '../content/personal';
+import { letterFacts } from '../content/letters';
 import { ITEMS, COLLECTIBLE_ITEM, COLLECTIBLE_XP } from '../content/items';
 import { COSMETICS } from '../content/cosmetics';
 
@@ -126,9 +127,11 @@ export function afterChange() {
         if (startQuest(s, q.id)) toast(`New quest: ${q.title}`, 'scroll', 'quest');
       }
     }
-    for (const e of PERSONAL) {
-      if (!s.unlocked[e.id] && checkCondition(e.unlock, c)) unlockEntry(e.id, !!e.unlock);
-    }
+    // (When several letters arrive at once, e.g. an older save meeting the new achievement letters, one toast says so.)
+    const fresh = PERSONAL.filter((e) => !s.unlocked[e.id] && checkCondition(e.unlock, c));
+    const letters = fresh.filter((e) => e.kind === 'letter' && e.unlock).length;
+    for (const e of fresh) unlockEntry(e.id, !!e.unlock && (e.kind !== 'letter' || letters === 1));
+    if (letters > 1) toast(`${letters} new letters in your mailbox ♡`, 'letter', 'good');
   } finally {
     checking = false;
   }
@@ -140,6 +143,8 @@ export function unlockEntry(id: string, announce = true) {
   if (s.unlocked[id]) return;
   s.unlocked[id] = Date.now();
   const e = PERSONAL.find((p) => p.id === id);
+  // A letter remembers what her game looked like the day it arrived (so it always says what was true then).
+  if (e?.kind === 'letter') s.letterFacts[id] = letterFacts(s);
   if (e && announce) {
     bus.emit('unlock', { id, title: e.title, kind: e.kind });
     toast(`New ${KIND_LABEL[e.kind].toLowerCase()} in your journal`, 'letter', 'good');

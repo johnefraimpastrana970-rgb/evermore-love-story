@@ -1,5 +1,6 @@
 import type { PersonalEntry } from './types';
 import { AUTHORED, mergeEntries } from './authored';
+import { LETTERS } from './letters';
 
 /*
  * ╔══════════════════════════════════════════════════════════════════════╗
@@ -17,14 +18,9 @@ import { AUTHORED, mergeEntries } from './authored';
  */
 export const PERSONAL_TEMPLATES: PersonalEntry[] = [
   // ---------------- Letters (mailbox in backyard) ----------------
-  { id: 'letter-welcome', kind: 'letter', title: '⟦A letter to open first⟧', placeholder: true,
-    body: '⟦Dear {her},\n\nWrite the first letter she reads when she starts the game.\n\n— {him}⟧' },
-  { id: 'letter-level5', kind: 'letter', title: '⟦Letter unlocked at level 5⟧', placeholder: true,
-    unlock: { minLevel: 5 }, body: '⟦Your words here.⟧' },
-  { id: 'letter-level10', kind: 'letter', title: '⟦Letter unlocked at level 10⟧', placeholder: true,
-    unlock: { minLevel: 10 }, body: '⟦Your words here.⟧' },
-  { id: 'letter-night', kind: 'letter', title: '⟦A letter for sleepless nights⟧', placeholder: true,
-    unlock: { time: ['night'], minLevel: 3 }, body: '⟦Something to read when she can’t sleep.⟧' },
+  // Finished letters from him, one for every achievement (see letters.ts). A letter written in the Author tool with
+  // the same id replaces the one there.
+  ...LETTERS,
 
   // ---------------- Messages (bedroom laptop / daily) ----------------
   { id: 'message-1', kind: 'message', title: '⟦Daily message 1⟧', placeholder: true, body: '⟦A short sweet message. One is shown each day.⟧' },

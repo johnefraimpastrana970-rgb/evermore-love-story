@@ -67,6 +67,8 @@ export interface GameState {
   unlocked: Record<string, number>;
   /** Personal entries she has read. */
   read: Record<string, number>;
+  /** Letters: the little facts from her game when each letter arrived (charms, hugs, level…), id -> facts. */
+  letterFacts: Record<string, Record<string, string>>;
   challengesDone: Record<string, number>;
   collected: { key: string; ids: string[] };
   cosmetics: {
@@ -132,6 +134,7 @@ export function defaultState(herName = '', hisName = '', playAs: 'her' | 'him' =
     secrets: {},
     unlocked: {},
     read: {},
+    letterFacts: {},
     challengesDone: {},
     collected: { key: '', ids: [] },
     cosmetics: {

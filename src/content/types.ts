@@ -31,6 +31,8 @@ export interface Condition {
   questActive?: string;
   minAffection?: number;
   secret?: string;
+  /** An achievement she has earned (achievement letters arrive with it). */
+  achievement?: string;
   /** 0..1 – evaluated once per call, use sparingly. */
   chance?: number;
 }
