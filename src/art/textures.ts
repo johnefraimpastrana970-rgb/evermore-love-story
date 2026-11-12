@@ -1,6 +1,7 @@
 import Phaser from 'phaser';
 import type { LocationDef, TimeOfDay } from '../content/types';
-import { ROOMS, setPaintLook } from './rooms';
+import { FLOOR_Y, ROOMS, setPaintLook } from './rooms';
+import { beginRoomPaint, depthPass } from './depth';
 import { isHouseRoom, type HouseRoom } from '../home/data';
 import { lookKey, resolveLook } from '../home/logic';
 import {
@@ -138,7 +139,9 @@ export function ensureRoom(scene: Phaser.Scene, loc: LocationDef, time: TimeOfDa
   const out: RoomTextures = { bg: base };
   if (!scene.textures.exists(base)) {
     const [c, ctx] = makeCanvas(loc.width, 720);
+    beginRoomPaint();
     p.bg(ctx, time, loc.width);
+    if (loc.indoor) depthPass(ctx, loc.width, FLOOR_Y, time);
     addCanvas(scene, base, c);
   }
   if (p.sky) {
@@ -200,10 +203,15 @@ export function buildBaseTextures(scene: Phaser.Scene) {
   make('p-rain', 4, 30, (ctx) => { ctx.fillStyle = vgrad(ctx, 0, 30, [[0, 0xc8d8ff]], 0.0); const g = ctx.createLinearGradient(0, 0, 0, 30); g.addColorStop(0, 'rgba(200,220,255,0)'); g.addColorStop(1, 'rgba(220,235,255,0.7)'); ctx.fillStyle = g; ctx.fillRect(1, 0, 2, 30); });
   make('p-star', 24, 24, (ctx) => { ctx.fillStyle = '#ffffff'; starPath(ctx, 12, 12, 11, 0.2, 4); ctx.fill(); });
   make('firefly', 32, 32, (ctx) => { glow(ctx, 16, 16, 16, 0xe8ff9a, 0.9); ellipse(ctx, 16, 16, 2.5, 2.5, '#fbffd8'); });
+  // Character shadow: a soft penumbra plus a darker contact core under the feet (centred in the texture; the old
+  // one was centred off the top edge, so half of it was cut off).
   make('shadow', 128, 32, (ctx) => {
-    const g = ctx.createRadialGradient(64, 16, 0, 64, 16, 64);
-    g.addColorStop(0, 'rgba(40,20,40,0.35)'); g.addColorStop(1, 'rgba(40,20,40,0)');
-    ctx.save(); ctx.scale(1, 0.25); ctx.fillStyle = g; ctx.fillRect(0, 0, 128, 128); ctx.restore();
+    const blob = (r: number, a: number) => {
+      const g = ctx.createRadialGradient(64, 64, 0, 64, 64, r);
+      g.addColorStop(0, `rgba(40,18,40,${a})`); g.addColorStop(0.6, `rgba(40,18,40,${a * 0.55})`); g.addColorStop(1, 'rgba(40,18,40,0)');
+      ctx.fillStyle = g; ctx.fillRect(64 - r, 64 - r, r * 2, r * 2);
+    };
+    ctx.save(); ctx.scale(1, 0.25); blob(62, 0.26); blob(34, 0.3); ctx.restore();
   });
   for (const k of ['heart', 'petal', 'star', 'note', 'sparkle']) {
     make(`col-${k}`, 64, 64, (ctx) => { glow(ctx, 32, 32, 32, 0xfff0f6, 0.55); ctx.save(); ctx.translate(8, 8); drawIcon(ctx, k, 48); ctx.restore(); });

@@ -44,7 +44,8 @@
 .hm-selected span { flex: 1; display: flex; flex-direction: column; }
 .hm-selected small { color: var(--ink-soft); font-size: 11px; }
 .hud-decor { position: fixed; right: calc(24px + var(--safe-r)); bottom: calc(110px + var(--safe-b)); z-index: 5; display: flex; flex-direction: column; align-items: center;
-  width: 74px; padding: 8px 4px 6px; border: 0; border-radius: 22px; background: rgba(255, 250, 246, .92); box-shadow: var(--shadow); font: inherit; color: var(--ink-soft); cursor: pointer; pointer-events: auto; }
+  width: 74px; padding: 8px 4px 6px; border: 0; border-radius: 22px; background: var(--surface); box-shadow: var(--bevel); font: inherit; color: var(--lilac-deep); cursor: pointer; pointer-events: auto; transition: transform .15s, box-shadow .15s; }
+.hud-decor:active { transform: translateY(3px); box-shadow: var(--bevel-pressed); }
 .hud-decor span { font-size: 26px; line-height: 1; }
 .hud-decor small { font-size: 10px; font-weight: 600; margin-top: 2px; }
 .hud-decor.touch { right: calc(44px + var(--safe-r)); bottom: calc(226px + var(--safe-b)); width: 64px; }

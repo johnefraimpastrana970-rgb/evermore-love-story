@@ -1,5 +1,6 @@
 import type { TimeOfDay } from '../content/types';
 import { rng } from '../core/rng';
+import { paintLog } from './depth';
 
 export type Ctx = CanvasRenderingContext2D;
 
@@ -77,17 +78,72 @@ export function ellipse(ctx: Ctx, x: number, y: number, rx: number, ry: number, 
   ctx.fill();
 }
 
+/**
+ * The shadow under a piece of furniture: a wide soft penumbra plus a tight dark contact core right where it
+ * touches the floor (ambient occlusion), so things sit on the floor instead of floating over it.
+ */
 export function floorShadow(ctx: Ctx, x: number, y: number, w: number, alpha = 0.18) {
-  const g = ctx.createRadialGradient(x, y, 0, x, y, w / 2);
-  g.addColorStop(0, `rgba(40,20,30,${alpha})`);
-  g.addColorStop(1, 'rgba(40,20,30,0)');
+  const blob = (rw: number, a: number, flat: number) => {
+    const g = ctx.createRadialGradient(x, y, 0, x, y, rw / 2);
+    g.addColorStop(0, `rgba(40,18,36,${a})`);
+    g.addColorStop(0.55, `rgba(40,18,36,${a * 0.6})`);
+    g.addColorStop(1, 'rgba(40,18,36,0)');
+    ctx.save();
+    ctx.translate(x, y);
+    ctx.scale(1, flat);
+    ctx.translate(-x, -y);
+    ctx.fillStyle = g;
+    ctx.fillRect(x - rw / 2, y - rw / 2, rw, rw);
+    ctx.restore();
+  };
+  blob(w * 1.15, alpha * 0.8, 0.2);
+  blob(w * 0.92, Math.min(0.5, alpha * 1.25), 0.07);
+}
+
+// ------------------------------------------------------------------- dimensional pieces
+
+/**
+ * A rounded panel that looks raised: a top-lit gradient, a bright bevel along the top/left edge, a shaded bevel along
+ * the bottom/right, and (optionally) a soft drop shadow on whatever it hangs on.
+ */
+export function bevelRR(ctx: Ctx, x: number, y: number, w: number, h: number, r: number, color: number, opts: { drop?: number; light?: number } = {}) {
+  const light = opts.light ?? 1;
+  if (opts.drop) {
+    ctx.save();
+    ctx.shadowColor = 'rgba(50,20,50,0.28)';
+    ctx.shadowBlur = opts.drop;
+    ctx.shadowOffsetY = opts.drop * 0.45;
+    fillRR(ctx, x, y, w, h, r, hex(color));
+    ctx.restore();
+  }
+  fillRR(ctx, x, y, w, h, r, vgrad(ctx, y, y + h, [[0, shade(color, 0.1 * light)], [0.55, color], [1, shade(color, -0.12)]]));
   ctx.save();
-  ctx.translate(x, y);
-  ctx.scale(1, 0.18);
-  ctx.translate(-x, -y);
-  ctx.fillStyle = g;
-  ctx.fillRect(x - w / 2, y - w / 2, w, w);
+  rr(ctx, x, y, w, h, r);
+  ctx.clip();
+  ctx.lineWidth = 3;
+  ctx.strokeStyle = `rgba(255,255,255,${0.55 * light})`;
+  ctx.beginPath(); ctx.moveTo(x + r, y + 1.5); ctx.lineTo(x + w - r, y + 1.5); ctx.moveTo(x + 1.5, y + r); ctx.lineTo(x + 1.5, y + h - r); ctx.stroke();
+  ctx.strokeStyle = hex(shade(color, -0.3), 0.45);
+  ctx.beginPath(); ctx.moveTo(x + r, y + h - 1.5); ctx.lineTo(x + w - r, y + h - 1.5); ctx.moveTo(x + w - 1.5, y + r); ctx.lineTo(x + w - 1.5, y + h - r); ctx.stroke();
   ctx.restore();
+}
+
+/**
+ * A solid piece standing on the floor, seen from slightly above: the top face (lighter, `top` px deep), the front
+ * face (darker toward the floor, with a bright front edge), and its contact shadow. (x, y) is the top-front edge.
+ */
+export function box(ctx: Ctx, x: number, y: number, w: number, h: number, top: number, color: number, opts: { r?: number; shadow?: boolean } = {}) {
+  const r = opts.r ?? 4;
+  if (opts.shadow !== false) floorShadow(ctx, x + w / 2, y + h, w * 1.05, 0.26);
+  // top face
+  fillRR(ctx, x + 2, y - top, w - 4, top + r, r, vgrad(ctx, y - top, y, [[0, shade(color, 0.16)], [1, shade(color, 0.26)]]));
+  // front face
+  fillRR(ctx, x, y, w, h, r, vgrad(ctx, y, y + h, [[0, shade(color, 0.02)], [1, shade(color, -0.2)]]));
+  // the crisp front edge where the light catches it, and the darker foot
+  ctx.fillStyle = 'rgba(255,255,255,0.45)';
+  ctx.fillRect(x + r, y, w - r * 2, 2);
+  ctx.fillStyle = hex(shade(color, -0.35), 0.35);
+  ctx.fillRect(x + r, y + h - 4, w - r * 2, 4);
 }
 
 export function heartPath(ctx: Ctx, x: number, y: number, s: number) {
@@ -319,6 +375,7 @@ export function drawWindow(
   opts: { frame?: number; curtain?: number; seed?: string; view?: (ctx: Ctx) => void; cols?: number; rows?: number } = {},
 ) {
   const frame = opts.frame ?? 0xfbf6ef;
+  paintLog.windows.push({ x, y, w, h }); // the depth pass casts its light onto the floor
   // light spill on wall
   if (time !== 'night') glow(ctx, x + w / 2, y + h / 2, Math.max(w, h) * 0.9, 0xfff4dc, 0.25);
   ctx.save();
@@ -326,6 +383,13 @@ export function drawWindow(
   ctx.clip();
   drawSky(ctx, x, y, w, h, time, opts.seed ?? `win${x}`);
   opts.view?.(ctx);
+  // the window is set into the wall: the frame's inner edge casts a shadow on the glass (top and left)
+  const inner = ctx.createLinearGradient(0, y, 0, y + 22);
+  inner.addColorStop(0, 'rgba(30,20,50,0.35)'); inner.addColorStop(1, 'rgba(30,20,50,0)');
+  ctx.fillStyle = inner; ctx.fillRect(x, y, w, 22);
+  const innerL = ctx.createLinearGradient(x, 0, x + 16, 0);
+  innerL.addColorStop(0, 'rgba(30,20,50,0.25)'); innerL.addColorStop(1, 'rgba(30,20,50,0)');
+  ctx.fillStyle = innerL; ctx.fillRect(x, y, 16, h);
   // glass sheen
   ctx.fillStyle = 'rgba(255,255,255,0.12)';
   ctx.beginPath();
@@ -346,10 +410,12 @@ export function drawWindow(
   for (let i = 1; i < cols; i++) { ctx.moveTo(x + (w * i) / cols, y); ctx.lineTo(x + (w * i) / cols, y + h); }
   for (let i = 1; i < rows; i++) { ctx.moveTo(x, y + (h * i) / rows); ctx.lineTo(x + w, y + (h * i) / rows); }
   ctx.stroke();
-  // sill
-  fillRR(ctx, x - 16, y + h + 2, w + 32, 14, 4, hex(shade(frame, -0.04)));
-  ctx.fillStyle = 'rgba(60,30,40,0.15)';
-  ctx.fillRect(x - 14, y + h + 16, w + 28, 5);
+  // sill: a ledge with a lit top and a shadow underneath on the wall
+  ctx.fillStyle = 'rgba(60,30,50,0.16)';
+  ctx.fillRect(x - 12, y + h + 16, w + 24, 9);
+  fillRR(ctx, x - 16, y + h + 2, w + 32, 14, 4, vgrad(ctx, y + h + 2, y + h + 16, [[0, shade(frame, 0.05)], [1, shade(frame, -0.12)]]));
+  ctx.fillStyle = 'rgba(255,255,255,0.6)';
+  ctx.fillRect(x - 12, y + h + 3, w + 24, 2);
   if (opts.curtain !== undefined) drawCurtains(ctx, x, y, w, h, opts.curtain);
 }
 
@@ -466,30 +532,52 @@ export function paintLandscape(ctx: Ctx, x: number, y: number, w: number, h: num
 }
 
 export function drawDoor(ctx: Ctx, x: number, y: number, w: number, h: number, color: number, opts: { glass?: boolean; arch?: boolean; open?: boolean } = {}) {
-  ctx.fillStyle = hex(0xf6efe6);
+  // The casing stands out from the wall (soft shadow), and the opening is recessed into it.
+  ctx.save();
+  ctx.shadowColor = 'rgba(50,20,50,0.25)'; ctx.shadowBlur = 10; ctx.shadowOffsetY = 3;
   fillRR(ctx, x - 10, y - 10, w + 20, h + 10, 6, '#f6efe6');
+  ctx.restore();
+  fillRR(ctx, x - 10, y - 10, w + 20, h + 10, 6, vgrad(ctx, y - 10, y + h, [[0, 0xfbf6ef], [1, 0xeadfd2]]));
+  ctx.fillStyle = 'rgba(255,255,255,0.7)';
+  ctx.fillRect(x - 8, y - 9, w + 16, 2);
   if (opts.arch) {
-    // Open archway showing a hint of the next room.
-    ctx.fillStyle = vgrad(ctx, y, y + h, [[0, 0xf2d6c0], [1, 0xd8b49a]]);
+    // Open archway showing a hint of the next room (darker deeper in).
+    ctx.fillStyle = vgrad(ctx, y, y + h, [[0, 0xe8c8b0], [1, 0xd0a88c]]);
     ctx.fillRect(x, y, w, h);
-    ctx.fillStyle = 'rgba(80,40,40,0.18)';
-    ctx.fillRect(x, y, 14, h);
-    ctx.fillRect(x, y, w, 10);
+    const g = ctx.createLinearGradient(x, 0, x + w, 0);
+    g.addColorStop(0, 'rgba(70,35,45,0.32)'); g.addColorStop(0.35, 'rgba(70,35,45,0.08)'); g.addColorStop(1, 'rgba(70,35,45,0.18)');
+    ctx.fillStyle = g; ctx.fillRect(x, y, w, h);
+    ctx.fillStyle = 'rgba(70,35,45,0.25)';
+    ctx.fillRect(x, y, w, 12);
     return;
   }
   ctx.fillStyle = vgrad(ctx, y, y + h, [[0, shade(color, 0.08)], [1, shade(color, -0.1)]]);
   ctx.fillRect(x, y, w, h);
-  ctx.strokeStyle = hex(shade(color, -0.2));
-  ctx.lineWidth = 3;
+  // the door sits a little back from the casing
+  ctx.fillStyle = 'rgba(50,25,40,0.22)';
+  ctx.fillRect(x, y, w, 5); ctx.fillRect(x, y, 4, h);
+  // raised panels: lit top/left edges, shaded bottom/right
+  const panel = (px: number, py: number, pw: number, ph: number) => {
+    ctx.lineWidth = 2.5;
+    ctx.strokeStyle = 'rgba(255,255,255,0.45)';
+    ctx.beginPath(); ctx.moveTo(px, py + ph); ctx.lineTo(px, py); ctx.lineTo(px + pw, py); ctx.stroke();
+    ctx.strokeStyle = hex(shade(color, -0.32), 0.8);
+    ctx.beginPath(); ctx.moveTo(px + pw, py); ctx.lineTo(px + pw, py + ph); ctx.lineTo(px, py + ph); ctx.stroke();
+  };
   if (opts.glass) {
-    fillRR(ctx, x + 16, y + 18, w - 32, h * 0.38, 4, 'rgba(200,230,255,0.75)');
-    ctx.strokeRect(x + 16, y + 18, w - 32, h * 0.38);
+    fillRR(ctx, x + 16, y + 18, w - 32, h * 0.38, 4, vgrad(ctx, y + 18, y + 18 + h * 0.38, [[0, 0xd8eeff], [1, 0xa8cce8]]));
+    ctx.fillStyle = 'rgba(255,255,255,0.35)';
+    ctx.beginPath(); ctx.moveTo(x + 20, y + 18 + h * 0.3); ctx.lineTo(x + w * 0.5, y + 20); ctx.lineTo(x + w * 0.62, y + 20); ctx.lineTo(x + 20, y + 18 + h * 0.36); ctx.fill();
+    panel(x + 16, y + 18, w - 32, h * 0.38);
   } else {
-    ctx.strokeRect(x + 14, y + 18, w - 28, h * 0.38);
+    panel(x + 14, y + 18, w - 28, h * 0.38);
   }
-  ctx.strokeRect(x + 14, y + h * 0.5, w - 28, h * 0.42);
-  ellipse(ctx, x + w - 18, y + h * 0.52, 6, 6, '#e8c070');
-  ellipse(ctx, x + w - 19, y + h * 0.515, 2.5, 2.5, '#fff3c8');
+  panel(x + 14, y + h * 0.5, w - 28, h * 0.42);
+  // knob: a little sphere with its shadow
+  ellipse(ctx, x + w - 16, y + h * 0.52 + 3, 6, 3, 'rgba(50,25,30,0.25)');
+  ellipse(ctx, x + w - 18, y + h * 0.52, 6, 6, '#d8a850');
+  ellipse(ctx, x + w - 19, y + h * 0.515, 4, 4, '#ecc470');
+  ellipse(ctx, x + w - 20, y + h * 0.505, 1.8, 1.8, '#fff3c8');
 }
 
 export function drawRug(ctx: Ctx, cx: number, cy: number, rw: number, rh: number, color: number, accent: number) {

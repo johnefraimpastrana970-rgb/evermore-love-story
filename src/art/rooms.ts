@@ -1,6 +1,6 @@
 import type { LocationId, TimeOfDay } from '../content/types';
 import {
-  Ctx, hex, shade, rr, fillRR, vgrad, glow, ellipse, floorShadow, heartPath, starPath,
+  Ctx, hex, shade, rr, fillRR, vgrad, glow, ellipse, floorShadow, heartPath, starPath, bevelRR, box,
   drawSky, drawWall, drawFloor, drawWindow, drawPlant, drawBooks, drawFrame, paintLandscape,
   drawDoor, drawRug, drawStringLights, type WallStyle,
 } from './paint';
@@ -75,10 +75,25 @@ const bedroom: RoomPainter = {
     drawDoor(ctx, 40, 170, 120, 330, 0xf3e3d3);
     drawWindow(ctx, 210, 120, 220, 210, time, { curtain: LOOK.curtain ?? 0xf4a6b8, seed: 'bedwin' });
 
-    // Memory board with string lights above the bed.
+    // A round pouf under the window and a little plant: somewhere to curl up with a book.
+    floorShadow(ctx, 330, 512, 130, 0.3);
+    ellipse(ctx, 330, 506, 58, 20, hex(shade(LOOK.rug ?? 0xf3b7c6, -0.18)));
+    ellipse(ctx, 330, 494, 58, 22, hex(shade(LOOK.rug ?? 0xf3b7c6, -0.02)));
+    ellipse(ctx, 330, 486, 50, 14, hex(shade(LOOK.rug ?? 0xf3b7c6, 0.12)));
+    ellipse(ctx, 316, 482, 18, 4, 'rgba(255,255,255,0.45)');
+    ctx.strokeStyle = 'rgba(255,255,255,0.5)'; ctx.lineWidth = 1.5;
+    for (let i = -2; i <= 2; i++) { ctx.beginPath(); ctx.moveTo(330 + i * 18, 474 + Math.abs(i) * 2); ctx.quadraticCurveTo(330 + i * 22, 494, 330 + i * 20, 514 - Math.abs(i) * 3); ctx.stroke(); }
+    drawPlant(ctx, 452, 500, 0.62, 0xe8a98a);
+
+    // Memory board with string lights above the bed (a cork board in a wooden frame, standing off the wall).
     drawStringLights(ctx, 540, 840, 140, 14, evening(time), 'bedlights');
-    fillRR(ctx, 570, 160, 240, 122, 6, '#c8956a');
-    fillRR(ctx, 578, 168, 224, 106, 4, vgrad(ctx, 168, 274, [[0, 0xd9ad80], [1, 0xc99c70]]));
+    bevelRR(ctx, 570, 160, 240, 122, 6, 0xc08a5e, { drop: 14 });
+    fillRR(ctx, 579, 169, 222, 104, 3, vgrad(ctx, 168, 274, [[0, 0xd9ad80], [1, 0xc99c70]]));
+    { // cork speckle, and the frame's shadow on the cork
+      const r = rng('cork');
+      for (let i = 0; i < 90; i++) { ctx.fillStyle = `rgba(120,70,40,${0.12 + r.next() * 0.15})`; ctx.fillRect(580 + r.next() * 220, 170 + r.next() * 102, 2, 2); }
+      ctx.fillStyle = 'rgba(80,40,20,0.22)'; ctx.fillRect(579, 169, 222, 5); ctx.fillRect(579, 169, 4, 104);
+    }
     polaroid(ctx, 612, 210, -0.12, 'p1');
     polaroid(ctx, 670, 220, 0.08, 'p2');
     polaroid(ctx, 730, 205, -0.05, 'p3');
@@ -86,34 +101,56 @@ const bedroom: RoomPainter = {
     ctx.fillStyle = '#fff3a8';
     ctx.save(); ctx.translate(645, 252); ctx.rotate(0.1); ctx.fillRect(-12, -10, 26, 22); ctx.restore();
 
-    // Bed (side view, headboard on the left).
-    floorShadow(ctx, 700, 500, 440, 0.3);
-    ctx.fillStyle = '#3a2228';
-    ctx.fillRect(520, 455, 360, 45);
-    fillRR(ctx, 500, 300, 50, 200, 18, vgrad(ctx, 300, 500, [[0, 0xf6f0ea], [1, 0xd8c8bc]]));
-    heartPath(ctx, 525, 325, 18); ctx.fillStyle = '#f19ab0'; ctx.fill();
-    fillRR(ctx, 860, 385, 34, 115, 10, vgrad(ctx, 385, 500, [[0, 0xf6f0ea], [1, 0xd8c8bc]]));
-    fillRR(ctx, 540, 410, 330, 50, 10, '#fffaf4');
-    // pillows
-    fillRR(ctx, 552, 372, 92, 40, 18, vgrad(ctx, 372, 412, [[0, 0xffffff], [1, 0xeee4ea]]));
-    fillRR(ctx, 600, 380, 70, 32, 14, vgrad(ctx, 380, 412, [[0, 0xffd6e0], [1, 0xf4b6c8]]));
-    // blanket with folds
+    // Bed (side view, seen a little from above; headboard on the left). The space under it is in deep shadow.
+    floorShadow(ctx, 700, 500, 470, 0.34);
+    ctx.fillStyle = vgrad(ctx, 452, 500, [[0, 0x2e1a22], [1, 0x4a2c34]]);
+    ctx.fillRect(522, 452, 356, 48);
+    for (const lx of [530, 856]) bevelRR(ctx, lx, 482, 14, 18, 3, 0x9a6448);
+    // wooden side rail
+    bevelRR(ctx, 516, 446, 368, 16, 5, 0xc08a66);
+    // headboard and footboard: thick rounded slabs, lit from the window side
+    bevelRR(ctx, 496, 292, 58, 208, 22, 0xf4ece4, { drop: 12 });
+    bevelRR(ctx, 507, 312, 36, 120, 14, 0xebdfd4);
+    heartPath(ctx, 525, 332, 18); ctx.fillStyle = '#f19ab0'; ctx.fill();
+    ctx.fillStyle = 'rgba(255,255,255,0.6)'; heartPath(ctx, 521, 335, 6); ctx.fill();
+    bevelRR(ctx, 858, 382, 40, 118, 13, 0xf4ece4, { drop: 8 });
+    // mattress: a soft slab with a lit top, tufted side and a shaded underside
+    fillRR(ctx, 538, 404, 334, 50, 12, vgrad(ctx, 404, 454, [[0, 0xffffff], [0.3, 0xfff8f2], [1, 0xe8dcd6]]));
+    ctx.fillStyle = 'rgba(255,255,255,0.9)'; ctx.fillRect(548, 405, 314, 3);
+    ctx.fillStyle = 'rgba(150,110,120,0.25)';
+    for (let x = 562; x < 866; x += 34) ellipse(ctx, x, 437, 2.2, 1.6, 'rgba(150,110,120,0.3)');
+    ctx.fillRect(540, 449, 330, 4);
+    // pillows (each sinks into the mattress and shades it)
+    ellipse(ctx, 600, 410, 50, 5, 'rgba(120,80,100,0.22)');
+    fillRR(ctx, 552, 370, 94, 42, 18, vgrad(ctx, 370, 412, [[0, 0xffffff], [0.6, 0xf6eef2], [1, 0xe2d4dc]]));
+    ellipse(ctx, 586, 380, 22, 5, 'rgba(255,255,255,0.9)');
+    ellipse(ctx, 638, 411, 36, 4, 'rgba(160,80,110,0.22)');
+    fillRR(ctx, 600, 379, 72, 33, 14, vgrad(ctx, 379, 412, [[0, 0xffdde6], [0.6, 0xf8c4d2], [1, 0xe8a4b8]]));
+    ellipse(ctx, 626, 387, 16, 4, 'rgba(255,255,255,0.7)');
+    // blanket: lies over the top and drapes down the side, with a soft rolled edge and folds
+    const bl = LOOK.blanket ?? 0xb9a0e6;
     ctx.beginPath();
     ctx.moveTo(640, 400);
-    ctx.quadraticCurveTo(740, 385, 870, 398);
-    ctx.lineTo(875, 470);
-    ctx.quadraticCurveTo(760, 478, 640, 466);
+    ctx.quadraticCurveTo(740, 386, 872, 398);
+    ctx.lineTo(878, 476);
+    ctx.quadraticCurveTo(820, 484, 760, 478);
+    ctx.quadraticCurveTo(700, 486, 640, 470);
     ctx.closePath();
-    ctx.fillStyle = vgrad(ctx, 390, 475, LOOK.blanket !== undefined ? [[0, shade(LOOK.blanket, 0.1)], [1, shade(LOOK.blanket, -0.14)]] : [[0, 0xc9b2ec], [1, 0x9f84d0]]);
+    ctx.fillStyle = vgrad(ctx, 390, 482, [[0, shade(bl, 0.16)], [0.28, shade(bl, 0.06)], [0.32, shade(bl, -0.06)], [1, shade(bl, -0.2)]]);
     ctx.fill();
-    ctx.strokeStyle = 'rgba(255,255,255,0.35)';
-    ctx.lineWidth = 2;
-    for (let i = 0; i < 5; i++) {
-      ctx.beginPath(); ctx.moveTo(670 + i * 42, 400); ctx.quadraticCurveTo(680 + i * 42, 430, 668 + i * 42, 468); ctx.stroke();
-    }
-    for (let i = 0; i < 7; i++) { heartPath(ctx, 660 + i * 32, 420 + (i % 2) * 18, 9); ctx.fillStyle = 'rgba(255,255,255,0.4)'; ctx.fill(); }
-    // plush bear
+    // where the top turns down into the drape (light on the top, shade below)
+    ctx.strokeStyle = 'rgba(255,255,255,0.4)'; ctx.lineWidth = 3;
+    ctx.beginPath(); ctx.moveTo(646, 414); ctx.quadraticCurveTo(750, 404, 868, 414); ctx.stroke();
+    // turned-back sheet edge at the head end
+    ctx.beginPath(); ctx.moveTo(640, 400); ctx.quadraticCurveTo(650, 436, 640, 470); ctx.lineTo(660, 470); ctx.quadraticCurveTo(668, 436, 660, 398); ctx.closePath();
+    ctx.fillStyle = vgrad(ctx, 398, 470, [[0, 0xffffff], [1, 0xeee2ea]]); ctx.fill();
+    ctx.strokeStyle = hex(shade(bl, -0.32), 0.45); ctx.lineWidth = 2;
+    for (let i = 0; i < 5; i++) { ctx.beginPath(); ctx.moveTo(690 + i * 38, 418); ctx.quadraticCurveTo(700 + i * 38, 446, 686 + i * 38, 476); ctx.stroke(); }
+    for (let i = 0; i < 7; i++) { heartPath(ctx, 676 + i * 28, 426 + (i % 2) * 18, 9); ctx.fillStyle = 'rgba(255,255,255,0.42)'; ctx.fill(); }
+    // plush bear (a contact shadow where it sits on the blanket)
+    ellipse(ctx, 814, 401, 22, 4, 'rgba(70,40,60,0.28)');
     ellipse(ctx, 812, 380, 20, 22, '#c89870');
+    ellipse(ctx, 806, 374, 9, 10, 'rgba(255,240,220,0.25)');
     ellipse(ctx, 812, 352, 16, 15, '#d4a47c');
     ellipse(ctx, 800, 340, 6, 6, '#c89870'); ellipse(ctx, 824, 340, 6, 6, '#c89870');
     ellipse(ctx, 812, 356, 6, 4, '#f3dcc0');
@@ -123,13 +160,20 @@ const bedroom: RoomPainter = {
     fillRR(ctx, 610, 478, 40, 18, 3, '#f4b6c8');
     ctx.fillStyle = '#d8344f'; ctx.fillRect(627, 478, 6, 18);
 
-    // Desk
+    // Desk: a top you can see the surface of, legs and a drawer unit with real depth.
     floorShadow(ctx, 1100, 500, 300, 0.25);
-    ctx.fillStyle = '#b07a52';
-    ctx.fillRect(975, 412, 10, 88); ctx.fillRect(1225, 412, 10, 88);
-    fillRR(ctx, 1150, 412, 85, 80, 4, vgrad(ctx, 412, 492, [[0, 0xc8946a], [1, 0xa87452]]));
-    ctx.fillStyle = '#e8c070'; ctx.fillRect(1185, 435, 16, 4); ctx.fillRect(1185, 465, 16, 4);
-    fillRR(ctx, 960, 398, 290, 16, 4, vgrad(ctx, 398, 414, [[0, 0xdcae84], [1, 0xb8885e]]));
+    ctx.fillStyle = 'rgba(60,30,40,0.18)'; ctx.fillRect(968, 414, 276, 10); // the top's shadow on the wall
+    for (const lx of [975, 1225]) {
+      ctx.fillStyle = vgrad(ctx, 412, 500, [[0, 0xa87452], [1, 0x8a5a3e]]); ctx.fillRect(lx, 412, 10, 88);
+      ctx.fillStyle = 'rgba(255,255,255,0.25)'; ctx.fillRect(lx, 412, 2, 88);
+    }
+    box(ctx, 1150, 416, 85, 80, 0, 0xc08a60, { shadow: false });
+    for (const dy of [0, 40]) {
+      ctx.strokeStyle = 'rgba(90,50,30,0.5)'; ctx.lineWidth = 2; ctx.strokeRect(1157, 422 + dy, 71, 32);
+      ctx.strokeStyle = 'rgba(255,255,255,0.3)'; ctx.beginPath(); ctx.moveTo(1158, 452 + dy); ctx.lineTo(1158, 423 + dy); ctx.lineTo(1227, 423 + dy); ctx.stroke();
+      ellipse(ctx, 1193, 438 + dy, 6, 3, '#e8c070'); ellipse(ctx, 1192, 437 + dy, 2.5, 1.2, '#fff3c8');
+    }
+    box(ctx, 960, 404, 290, 12, 8, 0xcc9a70, { shadow: false });
     // laptop
     ctx.save();
     ctx.translate(1000, 398);
@@ -142,30 +186,48 @@ const bedroom: RoomPainter = {
     ctx.fillStyle = '#ff8fb0'; heartPath(ctx, 54, -48, 18); ctx.fill();
     ctx.restore();
     if (evening(time)) glow(ctx, 1052, 360, 90, 0xbfe0ff, 0.35);
-    // keepsake box
+    // keepsake box (its lid overhangs and shades the box)
+    ellipse(ctx, 1158, 404, 48, 4, 'rgba(80,40,40,0.25)');
     fillRR(ctx, 1115, 418 - 50, 82, 50, 6, vgrad(ctx, 368, 418, [[0, 0xf7c2d2], [1, 0xe48aa6]]));
-    fillRR(ctx, 1110, 360, 92, 16, 5, '#f9d2de');
+    ctx.fillStyle = 'rgba(120,40,70,0.22)'; ctx.fillRect(1117, 375, 78, 6);
+    bevelRR(ctx, 1110, 360, 92, 16, 5, 0xf9d2de);
     ctx.fillStyle = '#d8344f'; ctx.fillRect(1152, 360, 8, 58);
     ellipse(ctx, 1146, 358, 10, 6, '#d8344f'); ellipse(ctx, 1166, 358, 10, 6, '#d8344f');
     // lamp
     lamp(ctx, 1222, 398, 70, 0xffd3a8, evening(time));
-    // Shelf with books and a small plant
-    fillRR(ctx, 975, 228, 250, 10, 3, '#c8946a');
+    // Shelf with books and a small plant (a real ledge: lit top, shadow under it on the wall)
+    ctx.fillStyle = 'rgba(60,30,40,0.16)'; ctx.fillRect(979, 238, 244, 10);
     drawBooks(ctx, 985, 172, 130, 56, 'bedbooks');
     drawPlant(ctx, 1170, 228, 0.55, 0xf0a0b8);
-    // Wardrobe
-    floorShadow(ctx, 1375, 500, 240, 0.3);
-    fillRR(ctx, 1280, 150, 190, 350, 8, vgrad(ctx, 150, 500, [[0, 0xfaf3ec], [1, 0xe6d8ca]]));
-    fillRR(ctx, 1272, 140, 206, 18, 4, '#f3e6da');
-    ctx.strokeStyle = '#d4c0ae'; ctx.lineWidth = 3;
-    ctx.strokeRect(1292, 170, 80, 300); ctx.strokeRect(1378, 170, 80, 300);
-    ellipse(ctx, 1364, 320, 4, 10, '#e8c070'); ellipse(ctx, 1386, 320, 4, 10, '#e8c070');
-    ctx.fillStyle = 'rgba(200,230,255,0.5)';
+    box(ctx, 975, 228, 250, 9, 5, 0xc8946a, { shadow: false, r: 2 });
+    // Wardrobe: a deep cabinet; we see its front, a sliver of its side, and its top cornice.
+    floorShadow(ctx, 1380, 500, 250, 0.34);
+    ctx.beginPath(); ctx.moveTo(1470, 156); ctx.lineTo(1486, 164); ctx.lineTo(1486, 496); ctx.lineTo(1470, 500); ctx.closePath();
+    ctx.fillStyle = vgrad(ctx, 156, 500, [[0, 0xe2d2c2], [1, 0xc8b4a2]]); ctx.fill();
+    bevelRR(ctx, 1280, 150, 190, 350, 8, 0xf6ede4, { drop: 10 });
+    box(ctx, 1272, 146, 206, 14, 6, 0xf3e6da, { shadow: false, r: 3 });
+    // two doors with raised panels; a mirror on the left one
+    for (const dx of [1292, 1378]) {
+      ctx.lineWidth = 2.5;
+      ctx.strokeStyle = 'rgba(255,255,255,0.75)'; ctx.beginPath(); ctx.moveTo(dx, 470); ctx.lineTo(dx, 170); ctx.lineTo(dx + 80, 170); ctx.stroke();
+      ctx.strokeStyle = 'rgba(150,120,100,0.6)'; ctx.beginPath(); ctx.moveTo(dx + 80, 170); ctx.lineTo(dx + 80, 470); ctx.lineTo(dx, 470); ctx.stroke();
+    }
+    ctx.fillStyle = vgrad(ctx, 185, 295, [[0, 0xdcefff], [1, 0xb4d4ee]]);
     rr(ctx, 1300, 185, 64, 110, 30); ctx.fill();
-    // hatbox on top
-    fillRR(ctx, 1320, 112, 60, 30, 8, '#a8d0f0');
+    ctx.fillStyle = 'rgba(255,255,255,0.55)';
+    ctx.beginPath(); ctx.moveTo(1306, 260); ctx.lineTo(1340, 196); ctx.lineTo(1352, 196); ctx.lineTo(1310, 276); ctx.fill();
+    ctx.strokeStyle = '#e8d4c2'; ctx.lineWidth = 3; rr(ctx, 1300, 185, 64, 110, 30); ctx.stroke();
+    for (const kx of [1364, 1386]) { ellipse(ctx, kx + 1, 322, 4, 10, 'rgba(80,50,30,0.25)'); ellipse(ctx, kx, 320, 4, 10, '#d8a850'); ellipse(ctx, kx - 1, 316, 1.6, 4, '#fff3c8'); }
+    for (const fx of [1290, 1450]) bevelRR(ctx, fx, 494, 14, 8, 2, 0xc8a080);
+    // hatbox on top (a cylinder: lid ellipse on top)
+    ellipse(ctx, 1352, 140, 34, 4, 'rgba(80,60,60,0.2)');
+    fillRR(ctx, 1320, 116, 64, 26, 6, vgrad(ctx, 116, 142, [[0, 0xb8daf4], [1, 0x88b8e0]]));
+    ellipse(ctx, 1352, 116, 32, 7, '#c8e2f8');
+    ctx.fillStyle = '#f19ab0'; ctx.fillRect(1348, 116, 8, 26);
     // poster & tall plant
+    ctx.save(); ctx.shadowColor = 'rgba(50,20,50,0.25)'; ctx.shadowBlur = 10; ctx.shadowOffsetY = 4;
     fillRR(ctx, 1500, 180, 80, 110, 4, '#fffaf2');
+    ctx.restore();
     ctx.save(); ctx.beginPath(); ctx.rect(1506, 186, 68, 98); ctx.clip();
     paintLandscape(ctx, 1506, 186, 68, 98, 'poster'); ctx.restore();
     drawPlant(ctx, 1540, 500, 1.1, 0xe8a98a);
@@ -182,15 +244,19 @@ const livingroom: RoomPainter = {
 
     drawDoor(ctx, 40, 170, 120, 330, 0xe8d4bc);
     // Bookshelf
-    floorShadow(ctx, 305, 500, 260, 0.3);
-    fillRR(ctx, 200, 140, 210, 360, 6, vgrad(ctx, 140, 500, [[0, 0x9a6a48], [1, 0x7a5236]]));
+    // (a deep case: dark back panel, each shelf board has a lit top, and shades the books under it)
+    floorShadow(ctx, 305, 500, 260, 0.34);
+    bevelRR(ctx, 200, 140, 210, 360, 6, 0x8e6042, { drop: 10 });
     for (let i = 0; i < 5; i++) {
       const sy = 150 + i * 70;
-      ctx.fillStyle = '#6a442c';
+      ctx.fillStyle = vgrad(ctx, sy, sy + 60, [[0, 0x4e3020], [1, 0x6a442c]]);
       ctx.fillRect(210, sy, 190, 60);
       drawBooks(ctx, 214, sy + 4, i === 1 ? 110 : 180, 56, 'lr' + i);
-      ctx.fillStyle = '#a87650';
-      ctx.fillRect(206, sy + 60, 198, 8);
+      const g = ctx.createLinearGradient(0, sy, 0, sy + 18);
+      g.addColorStop(0, 'rgba(30,15,10,0.45)'); g.addColorStop(1, 'rgba(30,15,10,0)');
+      ctx.fillStyle = g; ctx.fillRect(210, sy, 190, 18);
+      ctx.fillStyle = 'rgba(30,15,10,0.3)'; ctx.fillRect(210, sy, 6, 60);
+      box(ctx, 206, sy + 62, 198, 6, 4, 0xa87650, { shadow: false, r: 1 });
     }
     // the hollow book (gold, slightly out)
     fillRR(ctx, 338, 252, 18, 58, 2, vgrad(ctx, 252, 310, [[0, 0xf8d878], [1, 0xd8a840]]));
@@ -201,15 +267,28 @@ const livingroom: RoomPainter = {
     // Sofa
     floorShadow(ctx, 710, 500, 470, 0.32);
     const sofa = LOOK.sofa ?? 0x8aa6d6;
-    fillRR(ctx, 520, 350, 380, 90, 22, vgrad(ctx, 350, 440, [[0, shade(sofa, 0.12)], [1, shade(sofa, -0.05)]]));
-    fillRR(ctx, 510, 425, 400, 60, 14, vgrad(ctx, 425, 485, [[0, shade(sofa, 0.05)], [1, shade(sofa, -0.18)]]));
-    fillRR(ctx, 498, 390, 44, 100, 18, hex(shade(sofa, -0.05)));
-    fillRR(ctx, 878, 390, 44, 100, 18, hex(shade(sofa, -0.05)));
-    for (const cx of [580, 700, 820]) fillRR(ctx, cx - 54, 420, 108, 26, 10, hex(shade(sofa, 0.15)));
-    fillRR(ctx, 560, 380, 54, 46, 14, '#f4b6c8');
-    fillRR(ctx, 820, 382, 50, 44, 14, '#fff0c8');
+    // (same shapes as before, which the sitting overlay in couple.ts matches; now with volume)
+    bevelRR(ctx, 520, 350, 380, 90, 22, shade(sofa, 0.06), { drop: 8 });
+    for (const sx of [647, 773]) { // back cushion seams
+      ctx.fillStyle = hex(shade(sofa, -0.22), 0.55); ctx.fillRect(sx - 1, 358, 3, 70);
+      ctx.fillStyle = 'rgba(255,255,255,0.3)'; ctx.fillRect(sx + 2, 358, 2, 70);
+    }
+    fillRR(ctx, 510, 425, 400, 60, 14, vgrad(ctx, 425, 485, [[0, shade(sofa, 0.05)], [1, shade(sofa, -0.2)]]));
+    ctx.fillStyle = hex(shade(sofa, -0.3), 0.4); ctx.fillRect(522, 478, 376, 6);
+    for (const ax of [498, 878]) {
+      bevelRR(ctx, ax, 390, 44, 100, 18, shade(sofa, -0.03));
+      ellipse(ctx, ax + 22, 398, 16, 5, 'rgba(255,255,255,0.35)');
+    }
+    for (const cx of [580, 700, 820]) {
+      bevelRR(ctx, cx - 54, 420, 108, 26, 10, shade(sofa, 0.15));
+      ctx.fillStyle = hex(shade(sofa, -0.25), 0.35); ctx.fillRect(cx - 50, 446, 100, 4); // the cushion's shadow on the seat front
+    }
+    ellipse(ctx, 588, 424, 26, 4, 'rgba(60,30,50,0.2)');
+    bevelRR(ctx, 560, 380, 54, 46, 14, 0xf4b6c8);
+    ellipse(ctx, 846, 424, 24, 4, 'rgba(60,30,50,0.2)');
+    bevelRR(ctx, 820, 382, 50, 44, 14, 0xfff0c8);
     ctx.fillStyle = '#ffffff'; heartPath(ctx, 587, 392, 18); ctx.fill();
-    ctx.fillStyle = '#3a2a32'; ctx.fillRect(530, 485, 8, 15); ctx.fillRect(882, 485, 8, 15);
+    for (const lx of [530, 882]) { ctx.fillStyle = vgrad(ctx, 485, 500, [[0, 0x4a3038], [1, 0x2a1a20]]); ctx.fillRect(lx, 485, 8, 15); }
     // throw blanket
     ctx.beginPath(); ctx.moveTo(860, 360); ctx.quadraticCurveTo(900, 420, 880, 480); ctx.lineTo(840, 470); ctx.quadraticCurveTo(850, 410, 830, 362); ctx.closePath();
     ctx.fillStyle = '#e8d0f0'; ctx.fill();
@@ -221,9 +300,16 @@ const livingroom: RoomPainter = {
 
     // TV & console
     floorShadow(ctx, 1110, 500, 300, 0.25);
-    fillRR(ctx, 980, 430, 260, 70, 6, vgrad(ctx, 430, 500, [[0, 0xe6d6c4], [1, 0xc8b49c]]));
-    ctx.strokeStyle = '#b09a80'; ctx.lineWidth = 2; ctx.strokeRect(992, 442, 115, 46); ctx.strokeRect(1113, 442, 115, 46);
+    box(ctx, 980, 434, 260, 66, 8, 0xe2d2c0, { shadow: false });
+    for (const dx of [992, 1113]) {
+      ctx.lineWidth = 2;
+      ctx.strokeStyle = 'rgba(255,255,255,0.6)'; ctx.beginPath(); ctx.moveTo(dx, 488); ctx.lineTo(dx, 444); ctx.lineTo(dx + 115, 444); ctx.stroke();
+      ctx.strokeStyle = '#a89078'; ctx.beginPath(); ctx.moveTo(dx + 115, 444); ctx.lineTo(dx + 115, 488); ctx.lineTo(dx, 488); ctx.stroke();
+    }
+    ctx.save(); ctx.shadowColor = 'rgba(20,10,30,0.35)'; ctx.shadowBlur = 14; ctx.shadowOffsetY = 5;
     fillRR(ctx, 1000, 270, 220, 140, 8, '#24242c');
+    ctx.restore();
+    ctx.strokeStyle = 'rgba(255,255,255,0.18)'; ctx.lineWidth = 1.5; rr(ctx, 1001, 271, 218, 138, 8); ctx.stroke();
     const tvOn = time === 'night';
     ctx.fillStyle = tvOn ? vgrad(ctx, 278, 402, [[0, 0x8fc8ff], [1, 0xd0a0f0]]) : vgrad(ctx, 278, 402, [[0, 0x3a3a48], [1, 0x2a2a34]]);
     ctx.fillRect(1008, 278, 204, 124);
@@ -267,10 +353,15 @@ const kitchen: RoomPainter = {
 
     drawDoor(ctx, 40, 170, 150, 330, 0, { arch: true });
     // Fridge
-    floorShadow(ctx, 310, 500, 200, 0.3);
-    fillRR(ctx, 240, 160, 140, 340, 16, vgrad(ctx, 160, 500, [[0, 0xd4eee6], [1, 0xa8d4c6]]));
-    ctx.fillStyle = 'rgba(0,0,0,0.12)'; ctx.fillRect(240, 290, 140, 3);
-    fillRR(ctx, 362, 200, 8, 70, 4, '#f4f4f4'); fillRR(ctx, 362, 310, 8, 90, 4, '#f4f4f4');
+    floorShadow(ctx, 310, 500, 200, 0.34);
+    bevelRR(ctx, 240, 160, 140, 340, 16, 0xc2e4da, { drop: 12 });
+    ctx.fillStyle = 'rgba(255,255,255,0.28)'; ctx.fillRect(252, 172, 14, 110); ctx.fillRect(252, 302, 14, 180); // enamel sheen
+    ctx.fillStyle = 'rgba(40,80,70,0.25)'; ctx.fillRect(240, 289, 140, 4);
+    ctx.fillStyle = 'rgba(255,255,255,0.6)'; ctx.fillRect(244, 293, 132, 2);
+    for (const [hy, hh] of [[200, 70], [310, 90]]) {
+      fillRR(ctx, 364, hy + 3, 8, hh, 4, 'rgba(40,70,60,0.25)');
+      fillRR(ctx, 362, hy, 8, hh, 4, vgrad(ctx, hy, hy + hh, [[0, 0xffffff], [1, 0xd8dcdc]]));
+    }
     const mags: [number, number, number][] = [[268, 200, 0xff8fa8], [300, 230, 0xffd36a], [270, 250, 0x7fb4e8], [300, 330, 0xb48ae0], [330, 360, 0xff8fa8]];
     for (const [mx, my, mc] of mags) ellipse(ctx, mx, my, 8, 8, hex(mc));
     ctx.save(); ctx.translate(290, 360); ctx.rotate(-0.08); ctx.fillStyle = '#fffbea'; ctx.fillRect(-22, -20, 44, 54);
@@ -281,9 +372,12 @@ const kitchen: RoomPainter = {
     // Upper cabinets
     for (let x = 420; x < 880; x += 115) {
       if (x > 590 && x < 760) continue;
-      fillRR(ctx, x, 150, 108, 110, 6, vgrad(ctx, 150, 260, [[0, 0xfffaf2], [1, 0xeee2d2]]));
-      ctx.strokeStyle = '#e0d0bc'; ctx.lineWidth = 2; ctx.strokeRect(x + 10, 160, 88, 90);
-      ellipse(ctx, x + 54, 240, 8, 3, '#d8b070');
+      ctx.fillStyle = 'rgba(70,40,30,0.16)'; ctx.fillRect(x + 2, 260, 104, 12); // shadow under the cabinet on the tiles
+      bevelRR(ctx, x, 150, 108, 110, 6, 0xf8f0e4, { drop: 6 });
+      ctx.lineWidth = 2;
+      ctx.strokeStyle = 'rgba(255,255,255,0.8)'; ctx.beginPath(); ctx.moveTo(x + 10, 250); ctx.lineTo(x + 10, 160); ctx.lineTo(x + 98, 160); ctx.stroke();
+      ctx.strokeStyle = '#d4c2aa'; ctx.beginPath(); ctx.moveTo(x + 98, 160); ctx.lineTo(x + 98, 250); ctx.lineTo(x + 10, 250); ctx.stroke();
+      ellipse(ctx, x + 54, 241, 8, 3, 'rgba(90,60,30,0.25)'); ellipse(ctx, x + 54, 239, 8, 3, '#d8b070');
     }
     // range hood
     ctx.beginPath(); ctx.moveTo(630, 150); ctx.lineTo(730, 150); ctx.lineTo(760, 250); ctx.lineTo(600, 250); ctx.closePath();
@@ -297,15 +391,21 @@ const kitchen: RoomPainter = {
     ctx.fillRect(420, 410, 720, 90);
     for (let x = 430; x < 1130; x += 90) {
       if (x >= 590 && x < 770) continue;
-      ctx.strokeStyle = '#d8ccb8'; ctx.lineWidth = 2; ctx.strokeRect(x, 420, 80, 72);
-      ellipse(ctx, x + 40, 432, 10, 3, '#d8b070');
+      ctx.lineWidth = 2;
+      ctx.strokeStyle = 'rgba(255,255,255,0.85)'; ctx.beginPath(); ctx.moveTo(x, 492); ctx.lineTo(x, 420); ctx.lineTo(x + 80, 420); ctx.stroke();
+      ctx.strokeStyle = '#cbbca4'; ctx.beginPath(); ctx.moveTo(x + 80, 420); ctx.lineTo(x + 80, 492); ctx.lineTo(x, 492); ctx.stroke();
+      ellipse(ctx, x + 40, 434, 10, 3, 'rgba(90,60,30,0.25)'); ellipse(ctx, x + 40, 432, 10, 3, '#d8b070');
     }
+    // the toe-kick: a dark recess at the very bottom of the cabinets
+    ctx.fillStyle = 'rgba(60,40,30,0.28)'; ctx.fillRect(420, 494, 720, 6);
     // Oven
     fillRR(ctx, 600, 410, 160, 90, 4, vgrad(ctx, 410, 500, [[0, 0xf0f0f4], [1, 0xd0d0d8]]));
     fillRR(ctx, 615, 435, 130, 55, 6, '#3a3440');
     if (evening(time)) { ctx.fillStyle = 'rgba(255,170,80,0.35)'; ctx.fillRect(620, 440, 120, 45); }
     for (let i = 0; i < 4; i++) ellipse(ctx, 625 + i * 37, 422, 6, 6, '#5a5460');
-    fillRR(ctx, 410, 398, 740, 14, 4, vgrad(ctx, 398, 412, [[0, 0xa8d4c6], [1, 0x88b4a6]]));
+    // counter top: a slab with a visible surface, a lit front edge and a shadow under its lip
+    ctx.fillStyle = 'rgba(60,40,30,0.22)'; ctx.fillRect(420, 412, 720, 7);
+    box(ctx, 410, 402, 740, 10, 6, 0x98c8ba, { shadow: false, r: 3 });
     // pan with steam
     fillRR(ctx, 640, 386, 80, 12, 5, '#3a3440');
     ctx.fillStyle = '#3a3440'; ctx.fillRect(718, 389, 50, 5);
@@ -354,11 +454,12 @@ const kitchen: RoomPainter = {
     if (evening(time)) glow(ctx, 1285, 205, 90, 0xffd08a, 0.6);
     floorShadow(ctx, 1285, 500, 300, 0.28);
     for (const cx of [1200, 1370]) {
-      fillRR(ctx, cx - 22, 330, 44, 110, 10, '#d4a47c');
-      fillRR(ctx, cx - 26, 430, 52, 12, 4, '#c08a5e');
-      ctx.fillStyle = '#a87452'; ctx.fillRect(cx - 20, 442, 6, 58); ctx.fillRect(cx + 14, 442, 6, 58);
+      bevelRR(ctx, cx - 22, 330, 44, 110, 10, 0xd4a47c, { drop: 6 });
+      for (const lx of [cx - 20, cx + 14]) { ctx.fillStyle = vgrad(ctx, 442, 500, [[0, 0xa87452], [1, 0x82563a]]); ctx.fillRect(lx, 442, 6, 58); }
+      box(ctx, cx - 26, 432, 52, 10, 6, 0xc08a5e, { shadow: false, r: 3 });
     }
-    fillRR(ctx, 1190, 398, 190, 14, 4, '#c8946a');
+    ctx.fillStyle = 'rgba(60,30,30,0.2)'; ctx.fillRect(1196, 412, 178, 6);
+    box(ctx, 1190, 402, 190, 10, 6, 0xc8946a, { shadow: false, r: 3 });
     ctx.fillStyle = '#ffffff';
     ctx.fillRect(1196, 400, 178, 30);
     for (let i = 0; i < 9; i++) { ctx.fillStyle = i % 2 ? '#ffd6e0' : '#ffffff'; ctx.fillRect(1196 + i * 19.8, 412, 19.8, 18); }
