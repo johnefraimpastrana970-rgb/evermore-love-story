@@ -80,6 +80,12 @@ async function boot() {
   flow.attach(game);
   (window as any).__evermore = { game, store };
   document.getElementById('loading')?.remove();
+
+  if ('serviceWorker' in navigator && import.meta.env.PROD) {
+    navigator.serviceWorker
+      .register(new URL('sw.js', document.baseURI))
+      .catch((error: unknown) => console.error('Evermore could not register its offline app shell.', error));
+  }
 }
 
 void boot();

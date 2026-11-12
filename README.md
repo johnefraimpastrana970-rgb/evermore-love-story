@@ -17,6 +17,10 @@ npm run build      # production build into dist/
 
 The GitHub Actions workflow in `.github/workflows/deploy-pages.yml` builds and deploys the game on pushes to `main` or `master`. In the repository's **Settings → Pages**, set the source to **GitHub Actions**. You can also start a deployment from the **Actions** tab.
 
+## Install Evermore
+
+Evermore can be installed from its HTTPS site as a web app. On Android, open the site in a supported browser and choose **Install app** or **Add to Home screen**. On iPhone or iPad, open it in Safari, tap **Share**, then **Add to Home Screen**. The app uses the pink heart mark as its icon and caches the game shell for offline reopening after the first visit.
+
 ## Controls
 | Action | Keyboard | Mouse | Touch |
 |---|---|---|---|
