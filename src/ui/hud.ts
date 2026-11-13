@@ -36,7 +36,21 @@ const BUTTONS: [PanelId, string, string, string][] = [
 
 const TIME_LABEL = { morning: '🌅 Morning', day: '☀️ Day', sunset: '🌇 Sunset', night: '🌙 Night' };
 
+/**
+ * The HUD keeps the same proportions on every screen: it's laid out for a ~900 px tall window (like the game on a
+ * computer) and scaled down on shorter screens (phones), but never below what's still comfortable to tap.
+ */
+export function uiScale() {
+  return Math.max(0.6, Math.min(1, window.innerHeight / 900));
+}
+function applyUiScale() {
+  document.documentElement.style.setProperty('--ui', uiScale().toFixed(3));
+}
+
 export function initHud() {
+  applyUiScale();
+  window.addEventListener('resize', applyUiScale);
+  window.addEventListener('orientationchange', () => setTimeout(applyUiScale, 250));
   hud = el('div', 'hud hidden');
   hud.innerHTML = `
     <div class="hud-left">

@@ -63,7 +63,7 @@ body.hm-placing .hud, body.hm-placing .hud-needs, body.hm-placing .hands-btn, bo
 .hud-decor:active { transform: translateY(3px); box-shadow: var(--bevel-pressed); }
 .hud-decor span { font-size: 26px; line-height: 1; }
 .hud-decor small { font-size: 10px; font-weight: 600; margin-top: 2px; }
-.hud-decor.touch { right: calc(206px + var(--safe-r)); bottom: calc(34px + var(--safe-b)); width: 64px; }
+.hud-decor.touch { right: calc(24px + var(--safe-r)); bottom: calc(110px + var(--safe-b)); } /* the computer layout's column */
 .hud-decor.hidden { display: none; }
 
 @media (max-height: 520px) {
@@ -71,7 +71,4 @@ body.hm-placing .hud, body.hm-placing .hud-needs, body.hm-placing .hands-btn, bo
   .hm-card { width: 96px; }
   .hm-sw { height: 40px; }
   .hm-card img { height: 48px; }
-}
-@media (pointer: coarse) and (max-height: 520px) {
-  .hud-decor.touch { right: calc(180px + var(--safe-r)); bottom: calc(20px + var(--safe-b)); width: 58px; }
 }
