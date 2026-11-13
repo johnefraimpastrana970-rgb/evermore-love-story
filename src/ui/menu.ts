@@ -1,3 +1,4 @@
+import { Capacitor } from '@capacitor/core';
 import { store } from '../core/store';
 import { audio } from '../audio/audio';
 import { el, esc, uiRoot } from './dom';
@@ -99,6 +100,7 @@ export function showMenu(): Promise<MenuResult> {
       menu.innerHTML = `<div class="menu-card paper small"><h2>About Evermore</h2>
         <p>A cozy, endless little world made for one special person. Explore the house and school, collect charms, find secrets, play mini-games, and read letters that unlock over time.</p>
         <p><b>Controls</b><br>Move: WASD / arrows · click or tap the floor · on-screen joystick<br>Interact: E / Space / tap · Menus: C I Q J M · Esc for settings</p>
+        ${Capacitor.isNativePlatform() ? '' : '<p><a class="btn btn-rose android-download" href="./downloads/evermore-android.apk" download>Download the Android app</a></p>'}
         <p>There is no final level and no ending — only more days together.</p>
         <div class="row"><button class="btn" data-a="back">Back</button></div></div>`;
       menu.querySelector('[data-a=back]')!.addEventListener('click', () => { click(); home(); });

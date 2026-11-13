@@ -48,6 +48,7 @@ self.addEventListener('activate', (event) => {
 self.addEventListener('fetch', (event) => {
   const request = event.request;
   if (request.method !== 'GET' || new URL(request.url).origin !== self.location.origin) return;
+  if (new URL(request.url).pathname.endsWith('/downloads/evermore-android.apk')) return;
 
   event.respondWith(
     caches.open(CACHE_NAME).then(async (cache) => {

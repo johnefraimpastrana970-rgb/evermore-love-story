@@ -15,7 +15,7 @@ npm run build      # production build into dist/
 
 ## Deploy to GitHub Pages
 
-The GitHub Actions workflow in `.github/workflows/deploy-pages.yml` builds and deploys the game on pushes to `main` or `master`. In the repository's **Settings → Pages**, set the source to **GitHub Actions**. You can also start a deployment from the **Actions** tab.
+The GitHub Actions workflow in `.github/workflows/deploy-pages.yml` builds and deploys the game and Android APK on pushes to `main` or `master`. In the repository's **Settings → Pages**, set the source to **GitHub Actions**. You can also start a deployment from the **Actions** tab. After deployment, the APK is available at `<site-url>/downloads/evermore-android.apk` and from **About Evermore** in the game.
 
 ## Install Evermore
 
@@ -58,10 +58,7 @@ android/          Capacitor Android project
 ```
 
 ## Android APK
-1. Install **Android Studio** (it includes the Android SDK and the Java 21 runtime Capacitor 7 needs).
-2. `npm run android:sync` (builds the web app and copies it into `android/`).
-3. `npm run android:open`, then in Android Studio: **Build → Build App Bundle(s) / APK(s) → Build APK(s)**.
-4. The APK lands in `android/app/build/outputs/apk/`. For a signed release use **Build → Generate Signed Bundle / APK**.
+The Pages deployment publishes a debug-signed APK at `<site-url>/downloads/evermore-android.apk`. For local builds, install **Android Studio** (including its Android SDK and Java 21), run `npm run android:sync`, then `npm run android:open` and choose **Build → Build App Bundle(s) / APK(s) → Build APK(s)**. The local APK lands in `android/app/build/outputs/apk/`. For a Play Store release, generate a separately signed release APK or bundle in Android Studio.
 
 ## Art & music
 Everything is painted in code so the game works immediately. To use illustrated art, see “Replacing art” in
