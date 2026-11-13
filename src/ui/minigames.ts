@@ -27,7 +27,7 @@ const INFO: Record<MinigameId, { title: string; how: string; icon: string }> = {
   'skewer-memory': { title: 'Colorful Skewer', how: 'Memorize each ingredient sequence, then tap the ingredients in the same order.', icon: 'heart' },
   stars: { title: 'Stargazing', how: 'Connect the glowing stars in order (1 → 2 → 3…) to draw each constellation.', icon: 'star' },
   scramble: { title: 'Chalkboard Words', how: 'Unscramble the love word. Tap letters in order — or type them.', icon: 'book' },
-  slider: { title: 'Photo Puzzle', how: 'Slide the tiles back into place. Tap a tile next to the gap, or use the arrow keys.', icon: 'polaroid' },
+  slider: { title: 'Photo Puzzle', how: 'Easy puzzle: put the 3 picture pieces back in place. Tap a piece beside the empty space, or use the arrow keys. The finished photo is beside the puzzle.', icon: 'polaroid' },
 };
 
 let running = false;
@@ -548,7 +548,7 @@ const GAMES: Record<MinigameId, (sh: Shell) => Promise<number | null>> = {
       paintLandscape(ctx, 0, 0, 450, 450, 'puzzle' + store.today());
       src = c.toDataURL();
     }
-    const N = 3;
+    const N = 2;
     const board = el('div', 'slide-board');
     sh.stage.appendChild(board);
     sh.stage.appendChild(el('div', 'slide-ref', `<img src="${src}" alt=""><small>Goal</small>`));
@@ -556,22 +556,27 @@ const GAMES: Record<MinigameId, (sh: Shell) => Promise<number | null>> = {
     let tiles = Array.from({ length: N * N }, (_, i) => i);
     let gap = N * N - 1;
     const neighbours = (p: number) => [p - N, p + N, p % N ? p - 1 : -1, (p + 1) % N ? p + 1 : -1].filter((q) => q >= 0 && q < N * N);
-    let last = -1;
-    for (let i = 0; i < 120; i++) {
-      const opts = neighbours(gap).filter((q) => q !== last);
+    for (let i = 0; i < 5; i++) {
+      const opts = neighbours(gap);
       const q = opts[Math.floor(Math.random() * opts.length)];
       [tiles[gap], tiles[q]] = [tiles[q], tiles[gap]];
-      last = gap; gap = q;
+      gap = q;
     }
-    if (tiles.every((t, i) => t === i)) { [tiles[0], tiles[1]] = [tiles[1], tiles[0]]; }
+    if (tiles.every((t, i) => t === i)) {
+      const q = neighbours(gap)[0];
+      [tiles[gap], tiles[q]] = [tiles[q], tiles[gap]];
+      gap = q;
+    }
     let moves = 0;
     return new Promise((resolve) => {
       const render = () => {
         board.innerHTML = '';
         tiles.forEach((t, pos) => {
           const b = el('button', `slide-tile ${t === N * N - 1 ? 'gap' : ''}`);
+          b.setAttribute('aria-label', t === N * N - 1 ? 'Empty space' : `Picture piece ${t + 1}`);
           if (t !== N * N - 1) {
             b.style.backgroundImage = `url(${src})`;
+            b.style.backgroundSize = `${N * 100}% ${N * 100}%`;
             b.style.backgroundPosition = `${(t % N) * 50}% ${Math.floor(t / N) * 50}%`;
           }
           b.addEventListener('click', () => move(pos));
