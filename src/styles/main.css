@@ -94,7 +94,7 @@ code { font-size: .85em; background: rgba(232, 87, 125, .1); padding: 1px 6px; b
 .logo { text-align: center; color: #fff; text-shadow: 0 4px 30px rgba(255, 120, 170, .6); animation: rise 1.2s ease-out both; }
 .logo h1 { font-family: var(--serif); font-style: italic; font-weight: 600; font-size: clamp(56px, 11vw, 120px); margin: 0; line-height: .9; letter-spacing: 1px; }
 .logo p { font-family: var(--hand); font-size: clamp(22px, 3.5vw, 34px); margin: 6px 0 0; color: #ffd6e2; }
-.logo-heart { font-size: 40px; color: var(--rose-2); animation: beat 1.6s infinite; }
+.logo-icon { display: block; width: clamp(72px, 10vw, 112px); aspect-ratio: 1; object-fit: cover; margin: 0 auto 8px; border: 3px solid rgba(255, 255, 255, .9); border-radius: 24%; box-shadow: 0 8px 24px rgba(10, 0, 20, .3); }
 @keyframes rise { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: none; } }
 .menu-btns { display: flex; flex-direction: column; gap: 12px; min-width: 260px; animation: rise 1.2s .3s ease-out both; }
 .mbtn {
@@ -929,6 +929,8 @@ input[type=range]:active::-webkit-slider-thumb { transform: scale(1.25); }
    Responsive – phones in landscape have very little height
    ========================================================================== */
 @media (max-height: 520px) {
+  .logo-icon { width: 58px; margin-bottom: 4px; }
+  .title-menu { gap: 14px; }
   .hud-level { width: 56px; height: 54px; }
   .lvl-num { font-size: 20px; }
   .hud-who { min-width: 0; padding: 4px 10px; }

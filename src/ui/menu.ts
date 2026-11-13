@@ -32,7 +32,7 @@ export function showMenu(): Promise<MenuResult> {
       const latest = latestSlot();
       menu.innerHTML = `
         <div class="logo">
-          <div class="logo-heart">♥</div>
+          <img class="logo-icon" src="./icons/evermore-512.png" alt="Evermore app logo">
           <h1>${esc(GAME_TITLE)}</h1>
           <p>${esc(GAME_SUBTITLE)}</p>
         </div>

@@ -1,4 +1,4 @@
-const CACHE_NAME = 'evermore-shell-v1';
+const CACHE_NAME = 'evermore-shell-v2';
 const APP_SHELL = new URL('./', self.location).href;
 
 self.addEventListener('install', (event) => {
@@ -18,6 +18,7 @@ self.addEventListener('install', (event) => {
         './manifest.webmanifest',
         './icons/evermore-192.png',
         './icons/evermore-512.png',
+        './icons/evermore-512-maskable.png',
       ].map((asset) => new URL(asset, APP_SHELL).href);
 
       await Promise.all(
